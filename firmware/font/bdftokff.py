@@ -31,16 +31,25 @@ import hextokff
 FONT14 = "ter-u14n"
 FONT16 = "ter-u16n"
 FONT24 = "ter-u24b"
+WIDE14 = "FusionPixel-14"
+WIDE16 = "unifont-16"
+WIDE24 = "NotoSansCJK-24"
 
 
 def open_bdf_save_kff(filename, width, height):
     """Open a bdf font filename and save the corresponding kff file based on the filename"""
 
-    filename_kff = "m5stickv"
+    filename_kff = "m5stickv_cube"
     if filename == FONT16:
-        filename_kff = "bit_dock_yahboom"
+        filename_kff = "bit_dock_yahboom_wondermv"
     elif filename == FONT24:
         filename_kff = "amigo"
+    elif filename == WIDE14:
+        filename_kff = "m5stickv_cube_wide"
+    elif filename == WIDE16:
+        filename_kff = "bit_dock_yahboom_wondermv_wide"
+    elif filename == WIDE24:
+        filename_kff = "amigo_wide"
 
     # Create hexfile based on bdf
     font_hex = "\n".join(bdftohex.bdftohex(filename + ".bdf")) + "\n"
@@ -63,7 +72,10 @@ def open_bdf_save_kff(filename, width, height):
     # overrides/components/micropython/port/src/omv/img/font.c
     # in order to replace the contents of the unicode[] variable
     #  in the font.c
-    font_kff = hextokff.hextokff(filename + ".hex", width, height)
+    wide_glyphs = None
+    if filename in (WIDE14, WIDE16, WIDE24):
+        wide_glyphs = ["ko-KR", "zh-CN", "ja-JP"]
+    font_kff = hextokff.hextokff(filename + ".hex", width, height, wide_glyphs)
     with open(filename_kff + ".kff", "w", encoding="utf-8", newline="\n") as save_file:
         save_file.write(font_kff)
 
@@ -76,12 +88,21 @@ def save_new_fontc(font_name, overwrite=False):
     on each project, based on the font_name passed otherwise save
     a new font.c file"""
 
-    device_name = filename_kff = "m5stickv"
+    filename_kff = "m5stickv_cube"
+    device_name = "m5stickv"
     if font_name == FONT16:
-        filename_kff = "bit_dock_yahboom"
+        filename_kff = "bit_dock_yahboom_wondermv"
         device_name = "dock"
     elif font_name == FONT24:
         device_name = filename_kff = "amigo"
+    elif font_name == WIDE14:
+        filename_kff = "m5stickv_cube_wide"
+    elif font_name == WIDE16:
+        filename_kff = "bit_dock_yahboom_wondermv_wide"
+        device_name = "dock"
+    elif font_name == WIDE24:
+        device_name = "amigo"
+        filename_kff = "amigo_wide"
 
     maixpy_path_start = "../MaixPy/projects/maixpy_"
     maixpy_path_end = (
@@ -91,13 +112,18 @@ def save_new_fontc(font_name, overwrite=False):
     with open(filename_kff + ".kff", "r", encoding="utf-8") as read_file:
         content_kff = read_file.read()
 
-    content_kff = "static uint8_t unicode[] = {\n" + content_kff + "\n};"
+    if font_name in (WIDE14, WIDE16, WIDE24):
+        re_escape_str = "static uint8_t unicode_wide[] = {\n"
+        content_kff = re_escape_str + content_kff + "\n};"
+    else:
+        re_escape_str = "static uint8_t unicode[] = {\n"
+        content_kff = re_escape_str + content_kff + "\n};"
 
     filename = maixpy_path_start + device_name + maixpy_path_end
     with open(filename, "r", encoding="utf-8") as font_file:
         lines = font_file.read()
         unicode_str = re.sub(
-            re.escape("static uint8_t unicode[] = {\n")
+            re.escape(re_escape_str)
             + r"((0[xX][\da-fA-F]{2},)\n?)*0[xX][\da-fA-F]{2}\n};",
             content_kff,
             lines,
@@ -107,13 +133,23 @@ def save_new_fontc(font_name, overwrite=False):
         with open(filename, "w", encoding="utf-8", newline="\n") as save_file:
             save_file.write(unicode_str)
 
-        # Also replace for bit and yahboom
-        if font_name == FONT16:
+        # Also replace for bit, yahboom, and wonder_mv
+        if font_name in (FONT16, WIDE16):
             filename = maixpy_path_start + "bit" + maixpy_path_end
             with open(filename, "w", encoding="utf-8", newline="\n") as save_file:
                 save_file.write(unicode_str)
 
             filename = maixpy_path_start + "yahboom" + maixpy_path_end
+            with open(filename, "w", encoding="utf-8", newline="\n") as save_file:
+                save_file.write(unicode_str)
+
+            filename = maixpy_path_start + "wonder_mv" + maixpy_path_end
+            with open(filename, "w", encoding="utf-8", newline="\n") as save_file:
+                save_file.write(unicode_str)
+
+        # Also replace for Cube
+        if font_name in (FONT14, WIDE14):
+            filename = maixpy_path_start + "cube" + maixpy_path_end
             with open(filename, "w", encoding="utf-8", newline="\n") as save_file:
                 save_file.write(unicode_str)
     else:
@@ -127,16 +163,21 @@ def save_new_fontc(font_name, overwrite=False):
 
 
 if __name__ == "__main__":
-    REPLACE = False
-    if len(sys.argv) > 1:
-        REPLACE = True
+
+    replace = len(sys.argv) > 1 and sys.argv[1] == "True"
 
     # generate kff files
     open_bdf_save_kff(FONT14, 8, 14)
     open_bdf_save_kff(FONT16, 8, 16)
     open_bdf_save_kff(FONT24, 12, 24)
+    open_bdf_save_kff(WIDE14, 14, 14)
+    open_bdf_save_kff(WIDE16, 16, 16)
+    open_bdf_save_kff(WIDE24, 24, 24)
 
     # generate new font.c files (delete kff files)
-    save_new_fontc(FONT14, REPLACE)
-    save_new_fontc(FONT16, REPLACE)
-    save_new_fontc(FONT24, REPLACE)
+    save_new_fontc(FONT14, replace)
+    save_new_fontc(FONT16, replace)
+    save_new_fontc(FONT24, replace)
+    save_new_fontc(WIDE14, replace)
+    save_new_fontc(WIDE16, replace)
+    save_new_fontc(WIDE24, replace)

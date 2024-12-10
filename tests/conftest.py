@@ -2,9 +2,11 @@ from Crypto.Cipher import AES
 import pytest
 from .shared_mocks import (
     DeflateIO,
-    board_amigo_tft,
+    board_amigo,
     board_dock,
+    board_cube,
     board_m5stickv,
+    board_wonder_mv,
     encode_to_string,
     encode,
     statvfs,
@@ -36,7 +38,9 @@ def mp_modules(mocker, monkeypatch):
     monkeypatch.setitem(sys.modules, "flash", mocker.MagicMock())
     monkeypatch.setitem(sys.modules, "machine", mocker.MagicMock())
     monkeypatch.setitem(sys.modules, "sensor", mocker.MagicMock())
-    monkeypatch.setitem(sys.modules, "lcd", mocker.MagicMock())
+    lcd_mock = mocker.MagicMock()
+    lcd_mock.string_width_px.side_effect = lambda s: len(s) * 8  # Assume 8px per char
+    monkeypatch.setitem(sys.modules, "lcd", lcd_mock)
     monkeypatch.setitem(sys.modules, "Maix", mocker.MagicMock())
     monkeypatch.setitem(sys.modules, "fpioa_manager", mocker.MagicMock())
     monkeypatch.setitem(sys.modules, "pmu", mocker.MagicMock())
@@ -70,7 +74,7 @@ def m5stickv(monkeypatch, mp_modules):
 def amigo(monkeypatch, mp_modules):
     import sys
 
-    monkeypatch.setitem(sys.modules, "board", board_amigo_tft())
+    monkeypatch.setitem(sys.modules, "board", board_amigo())
     reset_krux_modules()
 
 
@@ -79,4 +83,26 @@ def dock(monkeypatch, mp_modules):
     import sys
 
     monkeypatch.setitem(sys.modules, "board", board_dock())
+    monkeypatch.setitem(sys.modules, "pmu", None)
     reset_krux_modules()
+
+
+@pytest.fixture
+def cube(monkeypatch, mp_modules):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "board", board_cube())
+    reset_krux_modules()
+
+
+@pytest.fixture
+def wonder_mv(monkeypatch, mp_modules):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "board", board_wonder_mv())
+    reset_krux_modules()
+
+
+@pytest.fixture(params=["amigo", "m5stickv", "dock", "cube"])
+def multiple_devices(request):
+    return request.getfixturevalue(request.param)

@@ -1,7 +1,8 @@
 [![created at](https://img.shields.io/github/created-at/selfcustody/krux)](https://github.com/selfcustody/krux/commit/bb8e2d63e031417111ff7cb2b8877c10e19410be)
 [![downloads](https://img.shields.io/github/downloads/selfcustody/krux/total)](https://github.com/selfcustody/krux/releases)
 [![downloads (latest release)](https://img.shields.io/github/downloads/selfcustody/krux/latest/total)](https://github.com/selfcustody/krux/releases)
-[![commits (since latest release)](https://img.shields.io/github/commits-since/selfcustody/krux/latest/develop)](https://github.com/selfcustody/krux/compare/main...develop)
+[![contributors](https://img.shields.io/github/contributors-anon/selfcustody/krux)](https://github.com/selfcustody/krux/graphs/contributors)
+[![commit activity](https://img.shields.io/github/commit-activity/y/selfcustody/krux)](https://github.com/selfcustody/krux/commits)
 [![codecov](https://codecov.io/gh/selfcustody/krux/branch/main/graph/badge.svg?token=XU80PT6Q9V)](https://codecov.io/gh/selfcustody/krux)
 [![calver](https://img.shields.io/badge/calver-YY.0M.MICRO-22bfda.svg)](https://calver.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/selfcustody/krux/blob/main/LICENSE.md)
@@ -12,6 +13,7 @@
 <img src="https://selfcustody.github.io/krux/img/maixpy_dock/logo-151.png" width="144">
 <img src="https://selfcustody.github.io/krux/img/maixpy_yahboom/logo-156.png" width="116">
 <img src="https://selfcustody.github.io/krux/img/maixpy_cube/logo-200.png" width="120">
+<img src="https://selfcustody.github.io/krux/img/maixpy_wonder_mv/logo-152.png" width="116">
 </p>
 
 Krux is an open-source firmware facilitating the creation of Bitcoin signing devices from readily available components, such as Kendryte K210 devices. It transforms these devices into airgapped tools capable of handling transactions for both single and multisignature wallets, supporting offline signing via QR code or SD card, thus empowering users to securely self-custody their Bitcoin.
@@ -40,7 +42,7 @@ git pull origin main && git submodule update --init --recursive
 ```
 
 ## Krux (script) (Linux or WSL)
-The [krux](krux) bash script contains commands for common development tasks. It assumes a Linux host, you will need to have [Docker Desktop or Docker Engine](https://docs.docker.com/desktop/), `openssl`, and `wget` installed at a minimum for the commands to work as expected. It works on Windows using WSL. The channel Crypto Guide from Youtube made a step-by-step video - [Krux DIY Bitcoin Signer: Build From Source & Verify (With Windows + WSL2 + Docker)](https://www.youtube.com/watch?v=Vmr_TFy2TfQ)
+The [krux](krux) bash script contains commands for common development tasks. It assumes a Linux host, you will need to have [Docker Desktop or Docker Engine](https://docs.docker.com/desktop/) (don't forget to add your user to the docker group `sudo usermod -aG docker $USER`), `openssl`, and `wget` installed at a minimum for the commands to work as expected. It works on Windows using WSL. The channel Crypto Guide from Youtube made a step-by-step video - [Krux DIY Bitcoin Signer: Build From Source & Verify (With Windows + WSL2 + Docker)](https://www.youtube.com/watch?v=Vmr_TFy2TfQ)
 
 To build and flash the firmware:
 ```bash
@@ -147,6 +149,9 @@ poetry run poe simulator-yahboom
 
 # Run simulator on the device cube, then use keyboard (arrow keys UP or DOWN and ENTER)
 poetry run poe simulator-cube
+
+# Run simulator with the touch device wonderMV, then use mouse to navigate
+poetry run poe simulator-wonder-mv
 ```
 
 Note: With emulated SD card it is possible to store settings, encrypted mnemonics, also drop and sign PSBTs. After some time running, the simulator may become slow. If that happens, just close and open again!
@@ -181,6 +186,8 @@ poetry run poe simulator --sequence sequences/home-options.txt --no-screenshot-s
 ```
 
 ## Live debug a device (Linux)
+It is not possible to drop into a live Python REPL anymore as we disabled the `MICROPY_ENABLE_COMPILER` flag in `firmware\MaixPy\components\micropython\port\include\mpconfigport.h`. If you enable it again it will be possible to drop into a live Python REPL by issuing an interrupt with Ctrl-C:
+
 If you've made a fresh build and flashed it to your device, you can connect to the device over serial connection with:
 ```bash
 screen /dev/tty.usbserial-device-name 115200
@@ -245,8 +252,6 @@ machine.reset()
 ```
 
 Now, with watchdog disabled, you can use debug the device normally. Also remember to disable the `Settings > Security > Shutdown Time` setting it to `0` to no more automatic resets, and if you added any print statements to the code, they should appear whenever your code is reached.
-
-It is not possible to drop into a live Python REPL anymore as we disabled the `MICROPY_ENABLE_COMPILER` flag in `firmware\MaixPy\components\micropython\port\include\mpconfigport.h`. If you enable it again it will be possible to drop into a live Python REPL by issuing an interrupt with Ctrl-C:
 
 ```bash
 Traceback (most recent call last):
@@ -331,6 +336,6 @@ Feel free to start a [new discussion](https://github.com/selfcustody/krux/discus
 **Note for PR's**: Checkout and branch off of the `develop` branch, please also make sure to explicitly target `develop`; `main` is the default branch for the latest version and also for downloading and installing Krux from source.
 
 # Support
-For technical support installing or using Krux, you can join our [Telegram chat](https://t.me/SC_Krux). Follow us on [X (Twitter)](https://twitter.com/selfcustodykrux) or send a message to the [Bitcoin Forum](https://bitcointalk.org/index.php?topic=5489022.0). Also check out the [DIYbitcoin chat](https://t.me/diybitcoin) on Telegram, a broader community of tinkerers, builders and hackers!
+For technical support installing or using Krux, you can join our [Telegram chat](https://t.me/SC_Krux). Follow us on [X (Twitter)](https://x.com/selfcustodykrux) or send a message to the [Bitcoin Forum](https://bitcointalk.org/index.php?topic=5489022.0). Also check out the [DIYbitcoin chat](https://t.me/diybitcoin) on Telegram, a broader community of tinkerers, builders and hackers!
 
 Please do not use issues for support requests. If necessary, you can use our [Discussions](https://github.com/selfcustody/krux/discussions) to post your question here on GitHub.

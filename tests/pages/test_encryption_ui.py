@@ -20,7 +20,7 @@ SEEDS_JSON = """{
     }
 }"""
 ENCRYPTED_QR_TITLE_CBC = "353175d8"
-ENCRYPTED_QR_DATA_CBC = b"\x08353175d8\x01\x00\x00\n!\xa1\xf3\x8b\x9e\xa1^\x8d\xab\x08\xf7\t\xf3\x94\x06\x89Q\x15]\xe0\xc6\xabf\x9c\x12E\xbcw\xcaa\x14\xfc\xa5\x16\x15\x0f;\x88\xbc\xb4H\xbe_\xf3\xf1b\x1e\x02\xff\xea\x9a\xe9z\xfd\xc9\xef\xcd\xa0A\x0c\xd1:a\x08"
+ENCRYPTED_QR_DATA_CBC = b"\x08353175d8\x01\x00\x00\nOR\xa1\x93l>2q \x9e\x9dd\x05\x9e\xd7\x8e\xa5\x95(IzR\x81\xabI:\x1e\x8a\x1d\xe7|O\xac\x9c\xe8.\x8cc\xc0\x93\x0e\xe67vpO#i\x99\xd1.\x85\xf7\x00\xfez\xadN\x9d7\xaex\xa6\xd3"
 
 ENCRYPTED_QR_TITLE_ECB = "06b79aa2"
 ENCRYPTED_QR_DATA_ECB = b"\x0806b79aa2\x00\x00\x00\n\xa4\xaaa\xb9h\x0c\xdc-i\x85\x83.9,\x91\xf1\x19E,\xc9\xf0'\xb1b7\x91mo\xa2-\xb6\x16\xac\x04-2F\x10\xda\xd1\xdb,\x85\x9fr\x1c\x8aH"
@@ -74,6 +74,7 @@ def test_esc_loading_key_from_keypad_is_none(m5stickv, mocker):
 def test_load_key_from_qr_code(m5stickv, mocker):
     from krux.pages.encryption_ui import EncryptionKey, ENCRYPTION_KEY_MAX_LEN
     from krux.input import BUTTON_ENTER, BUTTON_PAGE
+    from krux.pages.qr_capture import QRCodeCapture
 
     print("case 1: load_key_from_qr_code")
     BTN_SEQUENCE = (
@@ -84,9 +85,7 @@ def test_load_key_from_qr_code(m5stickv, mocker):
     ctx = create_ctx(mocker, BTN_SEQUENCE)
     key_generator = EncryptionKey(ctx)
     mocker.patch.object(
-        key_generator,
-        "capture_qr_code",
-        mocker.MagicMock(return_value=(("qr key", None))),
+        QRCodeCapture, "qr_capture_loop", new=lambda self: ("qr key", None)
     )
     key = key_generator.encryption_key()
     assert key == "qr key"
@@ -100,9 +99,7 @@ def test_load_key_from_qr_code(m5stickv, mocker):
     key_generator = EncryptionKey(ctx)
     too_long_text = "l" * (ENCRYPTION_KEY_MAX_LEN + 1)
     mocker.patch.object(
-        key_generator,
-        "capture_qr_code",
-        mocker.MagicMock(return_value=((too_long_text, None))),
+        QRCodeCapture, "qr_capture_loop", new=lambda self: (too_long_text, None)
     )
     key = key_generator.encryption_key()
     assert key == None
@@ -278,8 +275,9 @@ def test_load_encrypted_from_flash_wrong_key(m5stickv, mocker):
 
 def test_load_encrypted_qr_code(m5stickv, mocker):
     from krux.pages.login import Login
-    from krux.input import BUTTON_ENTER, BUTTON_PAGE
+    from krux.input import BUTTON_ENTER
     from krux.qr import FORMAT_NONE
+    from krux.pages.qr_capture import QRCodeCapture
 
     BTN_SEQUENCE = (
         # Decrypt? Yes
@@ -300,9 +298,9 @@ def test_load_encrypted_qr_code(m5stickv, mocker):
     ctx = create_ctx(mocker, BTN_SEQUENCE)
     login = Login(ctx)
     mocker.patch.object(
-        login,
-        "capture_qr_code",
-        mocker.MagicMock(return_value=(ENCRYPTED_QR_DATA_CBC, QR_FORMAT)),
+        QRCodeCapture,
+        "qr_capture_loop",
+        new=lambda self: (ENCRYPTED_QR_DATA_CBC, QR_FORMAT),
     )
     mocker.patch(
         "krux.pages.encryption_ui.EncryptionKey.encryption_key",

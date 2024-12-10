@@ -22,7 +22,7 @@
 
 [tool.poetry]
 name = "krux"
-version = "24.04.beta33"
+version = "24.11.1"
 description = "Open-source signing device firmware for Bitcoin"
 authors = ["Jeff S <jeffreesun@protonmail.com>"]
 
@@ -34,11 +34,11 @@ ur = { path = "./vendor/foundation-ur-py/", develop = true }
 urtypes = { path = "./vendor/urtypes/", develop = true }
 
 # Docs site dependencies. Optional extras
-mkdocs = { version = "^1.5.2", optional = true }
-mkdocs-material = { version = "^9.4.14", optional = true }
-urllib3 = "^2.1.0"  # Used by mkdocs-material, forces updated secure version
-mkdocs-static-i18n = { version = "^0.46", optional = true }
-pymdown-extensions = { version = "^10.0", optional = true }
+mkdocs = "^1.6.0"
+mkdocs-material = "^9.5.28"
+mkdocs-static-i18n = "^1.2.3"
+pymdown-extensions = "^10.8.1"
+mkdocs-macros-plugin = "^1.0.5"
 
 # Simulator dependencies. Optional extras
 numpy = { version = "^1.25.2", optional = true }
@@ -49,16 +49,18 @@ pyzbar = { version = "^0.1.9", optional = true }
 
 # Flash dependencies. Optional extras
 pyserial = { version = "^3.5", optional = true }
+qrcode = "^7.4.2"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.1.1"
-pylint = "^2.12.2"
-pytest = "^8.1.1"
-pytest-cov = "^4.1.0"
-pytest-mock = "^3.12.0"
+black = "^24.4.2"
+pylint = "^3.2.5"
+pytest = "^8.2.2"
+pytest-cov = "^5.0.0"
+pytest-mock = "^3.14.0"
 PyQRCode = "^1.2.1"
 pycryptodome = "^3.17.0"
 poethepoet = "^0.24.4"
+dill = "^0.3.8"
 
 [tool.poetry.extras]
 docs = ["mkdocs", "mkdocs-material", "mkdocs-static-i18n", "pymdown-extensions"]
@@ -83,12 +85,14 @@ lint = ["lint-src", "lint-scripts"]
 pylint.ref = "lint"
 
 # test tasks
-test = "pytest --cache-clear --cov src/krux --cov-report html ./tests"
+test-clean = """python -c 'import shutil, os; os.path.exists("htmlcov") and shutil.rmtree("htmlcov")'"""
+test-cov = "pytest --cache-clear --cov src/krux --cov-report html ./tests --cov-context=test --cov-report term-missing"
 test-verbose = "pytest --cache-clear --cov src/krux --cov-report html --show-capture all --capture tee-sys -r A ./tests"
 test-simple = "pytest --cache-clear ./tests"
 # aliases
-tests.ref = "test"
-pytest.ref = "test"
+tests = ["test-clean", "test-cov"]
+test.ref = "tests"
+pytest.ref = "tests"
 
 # pre commit task (do formatting, linting and tests)
 pre-commit = ["format", "lint", "i18n validate", "test-simple"]
@@ -111,6 +115,7 @@ simulator-m5stickv = "python simulator/simulator.py --device maixpy_m5stickv"
 simulator-dock = "python simulator/simulator.py --device maixpy_dock"
 simulator-yahboom = "python simulator/simulator.py --device maixpy_yahboom"
 simulator-cube = "python simulator/simulator.py --device maixpy_cube"
+simulator-wonder-mv = "python simulator/simulator.py --device maixpy_wonder_mv"
 # aliases
 simulator.ref = "simulator-amigo"
 simulator-m5.ref = "simulator-m5stickv"

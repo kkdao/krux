@@ -19,15 +19,39 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+
 import binascii
 import sys
 import json
-from os import listdir, walk
-from os.path import isfile, exists, join, basename
+from os import listdir, walk, mkdir
+from os.path import isfile, isdir, exists, join, basename
 import re
 
 SRC_DIR = "../src"
 TRANSLATION_FILES_DIR = "translations"
+
+KRUX_LICENSE = """# The MIT License (MIT)
+
+# Copyright (c) 2021-2024 Krux contributors
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+"""
 
 
 def find_translation_slugs():
@@ -86,8 +110,11 @@ def validate_translation_files():
         sys.exit(1)
 
 
-def print_missing():
-    """Uses translate 3.6.1 to automatically print missing translations"""
+def print_missing(save_to_file=False):
+    """
+    Uses translate 3.6.1 to automatically print missing translations
+    and optionally save them to files
+    """
     if len(sys.argv) > 2:
         force_target = sys.argv[2]
     else:
@@ -100,6 +127,11 @@ def print_missing():
         for f in listdir(TRANSLATION_FILES_DIR)
         if isfile(join(TRANSLATION_FILES_DIR, f))
     ]
+
+    filled_dir = join(TRANSLATION_FILES_DIR, "filled")
+    if save_to_file and not exists(filled_dir):
+        mkdir(filled_dir)
+
     for translation_filename in translation_filenames:
         target = translation_filename[:5]
         if force_target:
@@ -108,6 +140,7 @@ def print_missing():
         translator = Translator(to_lang=target)
         print("Translating %s...\n" % translation_filename)
         complete = True
+        new_translations = {}
         with open(
             join(TRANSLATION_FILES_DIR, translation_filename), "r", encoding="utf8"
         ) as translation_file:
@@ -115,10 +148,9 @@ def print_missing():
             for slug in slugs:
                 if slug not in translations or translations[slug] == "":
                     try:
-                        translated = '"%s",' % translator.translate(slug).replace(
-                            " \ n", "\\n"
-                        )
-                        print('"%s":' % slug, translated)
+                        translated = translator.translate(slug).replace(" \ n", "\\n")
+                        print('"%s":' % slug, '"%s",' % translated)
+                        new_translations[slug] = translated
                     except Exception as e:
                         print("Error:", e)
                         print("Failed to translate:", slug)
@@ -128,6 +160,17 @@ def print_missing():
             print("Nothing to add")
         else:
             print("\n -- Please review and copy items above -- ")
+            if save_to_file:
+                with open(
+                    join(filled_dir, translation_filename),
+                    "w",
+                    encoding="utf8",
+                    newline="\n",
+                ) as filled_file:
+                    json.dump(
+                        new_translations, filled_file, ensure_ascii=False, indent=4
+                    )
+                print(f"Saved translations to {join(filled_dir, translation_filename)}")
         print("\n\n")
 
 
@@ -167,55 +210,67 @@ def remove_unnecessary():
 
 
 def bake_translations():
-    """Bakes all translations into a translations.py file inside the krux namespace"""
-    translation_table = {}
+    """
+    Bakes individual translation tables into separate files inside the krux namespace
+    within a 'translations' subfolder.
+    """
+    translations_dir = join(SRC_DIR, "krux", "translations")
+
+    # Create the translations subfolder if it doesn't exist
+    if not isdir(translations_dir):
+        mkdir(translations_dir)
+
     translation_filenames = [
         f
         for f in listdir(TRANSLATION_FILES_DIR)
         if isfile(join(TRANSLATION_FILES_DIR, f))
     ]
     translation_filenames.sort()
+    code_slugs = find_translation_slugs()
+    code_slugs = sorted(code_slugs)
     for translation_filename in translation_filenames:
         with open(
             join(TRANSLATION_FILES_DIR, translation_filename), "r", encoding="utf8"
         ) as translation_file:
             translations = json.load(translation_file)
-            lookup = {}
-            for slug, translation in list(translations.items()):
-                lookup[binascii.crc32(slug.encode("utf-8"))] = translation
-            translation_table[basename(translation_filename).split(".")[0]] = lookup
+            translations_array = []
+            for slug in code_slugs:
+                if slug not in translations:
+                    translations_array.append(slug)
+                else:
+                    translations_array.append(translations[slug])
+            language_code = basename(translation_filename).split(".")[0][:2]
 
-    with open(
-        join(SRC_DIR, "krux", "translations.py"), "w", encoding="utf8", newline="\n"
-    ) as translations:
-        translations.write(
-            """# The MIT License (MIT)
-
-# Copyright (c) 2021-2024 Krux contributors
-
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.\n"""
+            # Write the individual translation array to a separate Python file
+            # in the 'translations' subfolder
+            with open(
+                join(translations_dir, f"{language_code}.py"),
+                "w",
+                encoding="utf8",
+                newline="\n",
+            ) as language_file:
+                language_file.write(KRUX_LICENSE)
+                language_file.write("# pylint: disable=C0301\n")
+                language_file.write("translation_array = ")
+                language_file.write(repr(translations_array))
+                language_file.write("\n")
+                print("Baked: " + translations_dir + f"/{language_code}.py")
+    # Create an reference array for index lookup
+    reference_array = []
+    for slug in code_slugs:
+        reference_array.append(binascii.crc32(slug.encode("utf-8")))
+    # Create a file with a list of all available languages and index lookup array
+    with open(join(translations_dir, "__init__.py"), "w", encoding="utf8") as init_file:
+        init_file.write(KRUX_LICENSE)
+        init_file.write("available_languages = [")
+        init_file.write(
+            ", ".join([f'"{basename(f).split(".")[0]}"' for f in translation_filenames])
         )
-        translations.write("# pylint: disable=C0301\n")
-        translations.write("translation_table = ")
-        translations.write(repr(translation_table))
-        translations.write("\n")
-        print("Baked " + SRC_DIR + "/krux/" + "translations.py")
+        init_file.write("]")
+        init_file.write("\n")
+        init_file.write("ref_array = ")
+        init_file.write(repr(reference_array))
+        init_file.write("\n")
 
 
 def create_translation_file(locale):
@@ -290,6 +345,8 @@ if __name__ == "__main__":
                 validate_translation_files()
             elif arg == "fill":
                 print_missing()
+            elif arg == "fill_to_files":
+                print_missing(save_to_file=True)
             elif arg == "clean":
                 remove_unnecessary()
             elif arg == "prettify":

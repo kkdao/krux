@@ -1,3 +1,205 @@
+# Changelog 24.11.1 - November 2024
+
+### Security Fix
+This release addresses a vulnerability affecting AES-CBC encrypted mnemonics stored on flash storage, SD cards, and QR codes. Due to an implementation error, the Initialization Vector (IV) in our CBC encryption, which used camera-generated entropy, was not being correctly utilized, which meant it did not provide the intended additional entropy.
+
+# Changelog 24.11.0 - November 2024
+
+### Tamper Check Flash Hash and Tamper Check Code (Experimental)
+The *Tamper Check Flash Hash* (TC Flash Hash) feature verifies the integrity of the device's flash memory by generating a unique tamper indicator that relies on hash properties. After setting up a *Tamper Check Code* (TC Code), this check can be performed at every boot or manually via `Tools -> Flash Tools`. The TC Code is a key component, required to execute the verification and detect unauthorized changes to the device's memory. Users can also fill unused memory blocks with camera-generated entropy to further mitigate tampering attempts.
+
+### Flash Map
+*Flash Map* is an auxiliary tool that allows users to visualize the regions of the device's memory that are empty. This helps users verify the results of actions such as:
+
+- Wiping the device's memory
+- Erasing the user's area
+- Saving settings and encrypted mnemonics
+- Filling empty blocks with camera-generated entropy
+
+### Japanese Translation
+Japanese translation has been added.
+
+### BIP85: Allow Export Base64 Passwords
+In  addition to BIP39 Mnemonics, users can now derive Base64 passwords from their keys. These passwords, which can be used in standard logins, can be noted down, saved to an SD card, or exported as a QR code.
+
+### Vulnerability Fix: Block Import of Python Modules from SD Card
+A feature of MicroPython, commonly used for general-purpose development, is the ability to run Python code directly from an SD card. However, with the recent implementation of tamper detection tools, this behavior is now considered a vulnerability. It was discovered that MicroPython would prioritize importing `.pyc` (Python frozen modules) from an SD card before checking the internal flash, which could be exploited to run unintended code from the SD card. To address this, a block has been implemented in MicroPython to prevent running any code from the SD card, enhancing the overall security of the device.
+
+### Add Compatibility to Partial Text Mnemonic QR Codes
+Partial Text Mnemonic QR Codes, like Coldcard's backups, where mnemonics words are cropped and contain only the first 3 or 4 letters, are now auto-completed and loaded.
+
+### Multi-keypad Position Indicator
+An indicator has been added to the bottom of keypads to help users identify the keypad index while swiping between them.
+
+### WonderMV Simulator
+Computer simulator for WonderMV device has been added.
+
+### Krux Ethos
+Guidelines have been created to assist with decision-making regarding the Krux project's interactions with contributors, users, and businesses that may create products or services related to Krux.
+
+### Minor Bugfixes and Refactors
+Several code improvements for better reliability and efficiency.
+
+# Changelog 24.09.1 - September 26, 2024
+
+### Fix Camera Orientation on Cube
+Fix for the camera, that was being started upside-down on Maix Cube devices 
+
+
+# Changelog 24.09.0 - September 25, 2024
+
+### New Device Support: WonderMV
+Manufactured by HiWonder, the WonderMV is similar to Yahboom K210 Module, with a few differences, including a metal enclosure, USB-C port, and screen backlight control.
+
+### Added Support for East Asian Languages - Korean and Simplified Chinese
+After implementing low-level support for different glyph form factors, we were finally able to introduce the long-awaited Korean language translation. Simplified Chinese support followed shortly thereafter.
+
+### Faster PSBT Scanning
+Reduced the time required to scan larger PSBTs by optimizing processing speed.
+
+### Improved QR Code Scanning
+Enhanced scan success rates in challenging conditions, such as reduced focus or scanning from greater distances.
+
+### UI Standardization
+The positions of "Yes" and "No" in prompts have been inverted to standardize the UI. Affirmative actions, such as "Yes," "Go," and "Proceed," will now be positioned on the right, while "No," "Esc," and "Back" will be on the left.
+
+### Enhanced Scanning Progress Bars
+QR code progress bars now provide more detailed information. For UR PSBTs, the progress bar indicates when a valid frame is captured, while for BBQR, it displays the index or position of the last successfully scanned frame.
+
+### Mnemoniocs Editor - Loading Mnemonics
+When manually loading an existing mnemonic, you can now correct typos and mistakes during the review stage by simply tapping or navigating to the incorrect words. The checksum word will be highlighted in red if the entered mnemonic is invalid to help detect eventual problems.
+
+### Mnemonics Editor - New Mnemonic
+When generating new mnemonics through dice rolls or camera images, you can now modify the entropy by changing some of the mnemonic words. The final word will dynamically adjust to always produce a valid checksum.
+
+### Support for Scanning Various Binary Grid Formats
+In addition to TinySeed, the camera can now scan and load mnemonics from equivalent formats, such as OneKey KeyTag, or even generic binary grids, like spreadsheets with colored, squared cells.
+
+### Message Signing Using SD cards
+Recently released in Sparrow, the SD card message signing workflow is now supported.
+
+### Generate Double Mnemonics from Camera
+When generating a new mnemonic using the camera, users can now choose to create a "Double Mnemonic," in addition to the standard 12 and 24-word options. This feature generates a 24-word mnemonic that, when split in half, forms two valid 12-word mnemonics.
+
+### Increased Valid Touch Surface
+To improve touch accuracy, especially on small touchscreens, the touch surface area of buttons has been increased to make better use of the available screen space.
+
+### Add Account Descriptor Type Support 
+Krux now accepts urtype.Account type QR code descriptors.
+
+### Enhanced File Exploring
+File explorer now better differentiate files from folders.
+
+### Camera Adjustments for Yahboom and WonderMV
+Sensitivity and exposure adjustments were made to the GC2145 sensor, enhancing the scanning success rate for Yahboom and WonderMV devices.
+
+### About Shows Board Type
+Ensure you flashed the correct firmware for your device consulting the "About" menu item.
+
+### Simplified Translations
+Messages and terms were simplified to reduce firmware size and maintenance.
+
+### Bugfix - Signing Messages with ":" Character
+Fixed an issue where signing messages containing the ":" character would result in invalid signatures when signing at addresses.
+
+### Bugfix - Import of Base64 Encoded PSBTs from SD Card
+Fixed an issue where base64 encoded PSBTs imported from an SD card were not correctly detected and parsed.
+
+### Translation Removed: Polish
+Polish translation was removed due to the lack of maintainers and known users.
+
+### Code Refactor and Optimizations
+Several optimizations to increase performance and code quality.
+
+# Changelog 24.07.0 - July 15, 2024
+
+### Maix Cube Support
+The Maix Cube now has its first official release. This affordable and compact cube-shaped device, equipped with a built-in battery, is an excellent choice for those seeking a discreet option.
+
+### Frozen Code - Speed and Security Improvement
+Krux now runs cross-compiled (frozen) Python code instead of real-time compiled code. The Python real-time compiler and REPL have been disabled.
+
+### More Single-sig Script Types Support
+Beyond Native Segwit, users can now load Legacy, Nested Segwit, and Taproot script type wallets.
+
+### Accounts Support
+Users can now use custom account derivation indexes.
+
+### Wallet Customization Options
+New workflow to load wallets, faster for default settings and with more options when custom settings are needed. Wallet's network, script type, single/multisig, and account can be changed during and after loading a wallet.
+
+### BIP85 Support
+Generate, export, and load BIP85 child mnemonics.
+
+### Wallet Sans Key
+Krux now has a tool to load a trusted wallet descriptor to view addresses without the need for private keys.
+
+### Add BBQr Support
+Scan and export PSBTs and wallet descriptors in the compact and efficient BBQr format.
+
+### Update Embit
+Embit updated to 0.8.
+
+### Auto Shutdown - Security and Battery Saving Feature
+The device will automatically shut down at a configurable time if left on.
+
+### Hide Mnemonics - Security Feature
+Disable backup tools and hide private key data when a wallet is loaded.
+
+### PSBT Path Mismatch
+Detect and warn the user if the PSBT path differs from the loaded wallet's path. This is useful for users who use multiple script types with the same key, ensuring they use the correct account when sending transactions.
+
+### Show Multisig PSBT Policy When Descriptor is Not Loaded
+Ensure you are signing for the correct multisig setup by inspecting PSBT's fingerprints if the wallet descriptor is not loaded. If the descriptor is loaded, verification is done by Krux.
+
+### Status Bar Shows Loaded Fingerprint
+The loaded key's fingerprint is now shown in the status bar.
+
+### Fee Percentage of Transaction
+Show the transaction's fee as a proportion of the transaction cost, warning if it is greater than 10%.
+
+### Sats/vB
+PSBT now displays an accurate estimation of the transaction’s feerate.
+
+### Brightness Control for Maix Cube and M5stickV
+Adjust backlight intensity for better viewing and scanning from your Cube or M5stickV.
+
+### Fast Forward for Buttons
+Hold the NEXT or PREVIOUS buttons when navigating among letters while typing text to fast forward or backward.
+
+### Add Display Settings for Maix Amigo
+Add more display settings for Amigo to allow different display models to work properly.
+
+### Faster Address Scanning and Exploring
+The time to scan or display wallet addresses is now less than half compared to the previous version.
+
+### Sign PSBTs Without Fingerprints
+Krux will now sign PSBTs even if a fingerprint is not properly set on the coordinator. Krux will still warn the user to set it correctly or use Krux-exported public keys to set their coordinators.
+
+### Dice Rolls Pattern Detection
+Krux warns the user if it suspects there are patterns within the actual rolls
+
+### Optimized SD Card Signing
+Better suited for large transactions, SD card signing is now more RAM efficient, allowing transactions with +100 inputs to be signed in less than a minute.
+
+### Stand Alone Verifiable Signed PSBTs
+As required in BIP174, signed PSBT QR codes and SD card files now contain all the required data to verify the signatures without needing the original, unsigned PSBT.
+
+### Camera Optimizations for Yahboom (ver:1.1) With GC2145 Camera
+Recent Yahboom K210 devices (ver:1.1) come with the GC2145 camera instead of the OV2640 (ver:1.0). Optimizations and features, such as anti-glare, have been added for the new camera.
+
+### Yahboom and Cube Devices Added to Simulator
+Simulator can now run as M5stickV, Amigo, Dock, Yahboom, and Cube.
+
+### Files sorted in SD file explorer
+The SD file explorer now sorts files in ascending order, showing directories first.
+
+### Receive or change address now starts with the index 0
+Address explorer now shows receive and change address starting at index 0 instead of number 1.
+
+### Other Small Fixes and Code Optimizations
+Bugfixes, optimizations and code refactoring.
+
 # Changelog 24.03.0 - March 12, 2024
 
 ## Changes

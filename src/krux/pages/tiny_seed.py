@@ -27,7 +27,7 @@ import image
 import sensor
 import time
 from embit.wordlists.bip39 import WORDLIST
-from . import Page, FLASH_MSG_TIME
+from . import Page, FLASH_MSG_TIME, proceed_menu
 from ..themes import theme
 from ..wdt import wdt
 from ..krux_settings import t
@@ -37,10 +37,10 @@ from ..display import (
     MINIMAL_DISPLAY,
     FONT_HEIGHT,
     FONT_WIDTH,
-    SMALLEST_WIDTH,
+    NARROW_SCREEN_WITH,
     SMALLEST_HEIGHT,
 )
-from ..camera import OV7740_ID, OV2640_ID, OV5642_ID
+from ..camera import BINARY_GRID_MODE
 from ..input import BUTTON_ENTER, BUTTON_PAGE, BUTTON_PAGE_PREV, BUTTON_TOUCH
 
 # Tiny Seed last bit index positions according to checksums
@@ -48,20 +48,21 @@ TS_LAST_BIT_NO_CS = 143
 TS_LAST_BIT_12W_CS = 139
 TS_LAST_BIT_24W_CS = 135
 
-TS_ESC_START_POSITION = 156
-TS_ESC_END_POSITION = 161
-TS_GO_POSITION = 167
+TS_ESC_START_POSITION = TS_LAST_BIT_NO_CS + 1
+TS_ESC_END_POSITION = TS_ESC_START_POSITION + 5
+TS_GO_POSITION = TS_ESC_START_POSITION + 11
 
 
 class TinySeed(Page):
     """Class for handling Tinyseed fomat"""
 
-    def __init__(self, ctx):
+    def __init__(self, ctx, label="Tiny Seed"):
         super().__init__(ctx, None)
         self.ctx = ctx
+        self.label = label
         self.x_offset = MINIMAL_PADDING + 2 * FONT_WIDTH
         self.printer = None
-        if self.ctx.display.width() > SMALLEST_WIDTH:
+        if self.ctx.display.width() > NARROW_SCREEN_WITH:
             self.x_pad = self.ctx.display.width() * 2 // 27
             self.y_pad = self.ctx.display.height() // 17
         else:
@@ -96,7 +97,7 @@ class TinySeed(Page):
 
     def _draw_labels(self, page):
         """Draws labels for import and export Tinyseed UI"""
-        self.ctx.display.draw_hcentered_text("Tiny Seed")
+        self.ctx.display.draw_hcentered_text(self.label)
 
         # case for non m5stickv, cube
         if not MINIMAL_DISPLAY:
@@ -178,7 +179,7 @@ class TinySeed(Page):
         pad_y = 8  # 2mm*8px
         self.ctx.display.clear()
         self.ctx.display.draw_hcentered_text(
-            t("Printing") + " ...", self.ctx.display.height() // 2
+            t("Printing.."), self.ctx.display.height() // 2
         )
         self.printer.print_string("Tiny Seed\n\n")
         for page in range(len(words) // 12):
@@ -286,74 +287,18 @@ class TinySeed(Page):
         y_position = index // 12
         y_position *= self.y_pad
         y_position += self.y_offset + 1
-        if index >= TS_ESC_START_POSITION:
-            y_position -= 3 * self.y_pad // 4
-            height = 2 * self.y_pad - self.y_pad // 4 - 2
-
-        if index > TS_ESC_END_POSITION:
-            x_position = self.x_offset + 6 * self.x_pad + 1
-        elif index >= TS_ESC_START_POSITION:
-            x_position = self.x_offset + 1
-        else:
+        if index < TS_LAST_BIT_NO_CS:
             x_position = index % 12
             x_position *= self.x_pad
             x_position += self.x_offset + 1
             width = self.x_pad - 2
-        self.ctx.display.outline(
-            x_position,
-            y_position,
-            width,
-            height,
-            theme.fg_color,
-        )
-
-    def _draw_menu(self):
-        """Draws options to leave and proceed"""
-        if self.ctx.input.touch is not None:
-            y_offset = self.ctx.input.touch.y_regions[13]
-            y_pad = self.ctx.input.touch.y_regions[14] - y_offset
-        else:
-            y_offset = self.y_offset + 13 * self.y_pad
-            y_pad = self.y_pad // 3
-        x_offset = self.x_offset
-        esc_x_offset = round(x_offset + 1.9 * self.x_pad)
-
-        # case for non m5stickv, cube
-        if not MINIMAL_DISPLAY:
-            esc_x_offset = round(x_offset + 2.3 * self.x_pad)
-
-        text_offset = y_offset + y_pad // 2 - FONT_HEIGHT // 2
-        self.ctx.display.draw_string(
-            esc_x_offset, text_offset, t("Esc"), theme.no_esc_color
-        )
-        self.ctx.display.draw_string(
-            round(x_offset + 8.4 * self.x_pad), text_offset, t("Go"), theme.go_color
-        )
-        # print border around buttons only on touch devices
-        if self.ctx.input.touch is not None:
-            self.ctx.display.draw_line(
-                x_offset,
-                y_offset,
-                x_offset + 12 * self.x_pad,
-                y_offset,
-                theme.frame_color,
+            self.ctx.display.outline(
+                x_position,
+                y_position,
+                width,
+                height,
+                theme.fg_color,
             )
-            self.ctx.display.draw_line(
-                x_offset,
-                y_offset + y_pad,
-                x_offset + 12 * self.x_pad,
-                y_offset + y_pad,
-                theme.frame_color,
-            )
-            for _ in range(3):
-                self.ctx.display.draw_line(
-                    x_offset,
-                    y_offset,
-                    x_offset,
-                    y_offset + y_pad,
-                    theme.frame_color,
-                )
-                x_offset += 6 * self.x_pad
 
     def _map_keys_array(self):
         """Maps an array of regions for keys to be placed in"""
@@ -363,14 +308,10 @@ class TinySeed(Page):
                 self.ctx.input.touch.x_regions.append(x_region)
                 x_region += self.x_pad
             y_region = self.y_offset
-            for count in range(15):
+            for _ in range(13):
                 self.ctx.input.touch.y_regions.append(y_region)
-                if count == 12:
-                    y_region += self.y_pad // 4
-                elif count == 13:
-                    y_region += self.y_pad * 7 // 4
-                else:
-                    y_region += self.y_pad
+                y_region += self.y_pad
+            self.ctx.input.touch.y_regions.append(self.ctx.display.height())
 
     def _draw_disabled(self, w24=False):
         """Draws disabled section where checksum is automatically filled"""
@@ -535,6 +476,7 @@ class TinySeed(Page):
         btn = None
         self._map_keys_array()
         page = 0
+        menu_offset = self.y_offset + 12 * self.y_pad
         while True:
             self._draw_labels(page)
             self._draw_grid()
@@ -542,7 +484,12 @@ class TinySeed(Page):
                 self._draw_disabled(w24)
                 tiny_seed_numbers = self._auto_checksum(tiny_seed_numbers)
             self._draw_punched(tiny_seed_numbers, page)
-            self._draw_menu()
+            menu_index = None
+            if index >= TS_GO_POSITION:
+                menu_index = 1
+            elif index >= TS_ESC_END_POSITION:
+                menu_index = 0
+            proceed_menu(self.ctx, menu_offset, menu_index, t("Go"), t("Esc"))
             if self.ctx.input.buttons_active:
                 self._draw_index(index)
             btn = self.ctx.input.wait_for_button()
@@ -580,7 +527,55 @@ class TinySeed(Page):
 class TinyScanner(Page):
     """Uses camera sensor to detect punch pattern on a Tiny Seed, in metal or paper"""
 
-    def __init__(self, ctx):
+    # Settings for different binary grid types
+    binary_grid_settings = {
+        "Tiny Seed": {
+            "xpad_factor": (240 / (12 * 345)),
+            "ypad_factor": (210 / (12 * 272)),
+            "x_offset_factor_amigo_p0": 39 / 345,
+            "y_offset_factor_amigo_p0": 44 / 272,
+            "x_offset_factor_amigo_p1": 42 / 345,
+            "y_offset_factor_amigo_p1": 41 / 272,
+            "x_offset_factor_p0": 65 / 345,
+            "y_offset_factor_p0": 17 / 272,
+            "x_offset_factor_p1": 62 / 345,
+            "y_offset_factor_p1": 22 / 272,
+            "aspect_high": 1.3,
+            "aspect_low": 1.1,
+        },
+        "OneKey KeyTag": {
+            "xpad_factor": 240 / (12 * 360),
+            "ypad_factor": 240 / (12 * 335),
+            "x_offset_factor_amigo_p0": 50 / 360,
+            "y_offset_factor_amigo_p0": 67 / 335,
+            "x_offset_factor_amigo_p1": 50 / 360,
+            "y_offset_factor_amigo_p1": 67 / 335,
+            "x_offset_factor_p0": 68 / 360,
+            "y_offset_factor_p0": 30 / 335,
+            "x_offset_factor_p1": 68 / 360,
+            "y_offset_factor_p1": 30 / 335,
+            "aspect_high": 1.1,
+            "aspect_low": 0.9,
+        },
+        "Binary Grid": {
+            "xpad_factor": 1 / 14,
+            "ypad_factor": 1 / 14,
+            "x_offset_factor_amigo_p0": 1 / 14,
+            "y_offset_factor_amigo_p0": 1 / 14,
+            "x_offset_factor_amigo_p1": 1 / 14,
+            "y_offset_factor_amigo_p1": 1 / 14,
+            "x_offset_factor_p0": 1 / 14,
+            "y_offset_factor_p0": 1 / 14,
+            "x_offset_factor_p1": 1 / 14,
+            "y_offset_factor_p1": 1 / 14,
+            "aspect_high": 1.3,
+            "aspect_low": 0.7,
+        },
+    }
+
+    grid_settings = None
+
+    def __init__(self, ctx, grid_type="Tiny Seed"):
         super().__init__(ctx, None)
         self.ctx = ctx
         # Capturing flag used for first page of 24 words seed
@@ -590,7 +585,14 @@ class TinyScanner(Page):
         self.y_regions = []
         self.time_frame = time.ticks_ms()
         self.previous_seed_numbers = [1] * 12
-        self.tiny_seed = TinySeed(self.ctx)
+        self.grid_settings = self.binary_grid_settings[grid_type]
+        if grid_type == "Binary Grid":
+            label = t("Binary Grid")
+        else:
+            label = grid_type
+        self.tiny_seed = TinySeed(self.ctx, label=label)
+        self.g_corners = (0x80, 0x80, 0x80, 0x80)
+        self.blob_otsu = 0x80
 
     def _map_punches_region(self, rect_size, page=0):
         # Think in portrait mode, with Tiny Seed tilted 90 degrees
@@ -599,22 +601,46 @@ class TinyScanner(Page):
         if not page:
             if board.config["type"] == "amigo":
                 # Amigo has mirrored coordinates
-                x_offset = rect_size[0] + (rect_size[2] * 39) / 345
-                y_offset = rect_size[1] + (rect_size[3] * 44) / 272
+                x_offset = (
+                    rect_size[0]
+                    + rect_size[2] * self.grid_settings["x_offset_factor_amigo_p0"]
+                )
+                y_offset = (
+                    rect_size[1]
+                    + rect_size[3] * self.grid_settings["y_offset_factor_amigo_p0"]
+                )
             else:
-                x_offset = rect_size[0] + (rect_size[2] * 65) / 345
-                y_offset = rect_size[1] + (rect_size[3] * 17) / 272
+                x_offset = (
+                    rect_size[0]
+                    + rect_size[2] * self.grid_settings["x_offset_factor_p0"]
+                )
+                y_offset = (
+                    rect_size[1]
+                    + rect_size[3] * self.grid_settings["y_offset_factor_p0"]
+                )
         else:
             if board.config["type"] == "amigo":
-                x_offset = rect_size[0] + (rect_size[2] * 42) / 345
-                y_offset = rect_size[1] + (rect_size[3] * 41) / 272
+                x_offset = (
+                    rect_size[0]
+                    + rect_size[2] * self.grid_settings["x_offset_factor_amigo_p1"]
+                )
+                y_offset = (
+                    rect_size[1]
+                    + rect_size[3] * self.grid_settings["y_offset_factor_amigo_p1"]
+                )
             else:
-                x_offset = rect_size[0] + (rect_size[2] * 62) / 345
-                y_offset = rect_size[1] + (rect_size[3] * 22) / 272
+                x_offset = (
+                    rect_size[0]
+                    + rect_size[2] * self.grid_settings["x_offset_factor_p1"]
+                )
+                y_offset = (
+                    rect_size[1]
+                    + rect_size[3] * self.grid_settings["y_offset_factor_p1"]
+                )
         self.x_regions.append(int(x_offset))
         self.y_regions.append(int(y_offset))
-        x_pad = rect_size[2] * 240 / (12 * 345)
-        y_pad = rect_size[3] * 210 / (12 * 272)
+        x_pad = rect_size[2] * self.grid_settings["xpad_factor"]
+        y_pad = rect_size[3] * self.grid_settings["ypad_factor"]
         for _ in range(12):
             x_offset += x_pad
             y_offset += y_pad
@@ -701,14 +727,22 @@ class TinyScanner(Page):
         # img.draw_string(10,55,str(gradient_bg_ll))
         # img.draw_string(70,55,str(gradient_bg_lr))
 
-        return (
-            img.get_statistics(roi=region_ul).median(),
-            img.get_statistics(roi=region_ur).median(),
-            img.get_statistics(roi=region_ll).median(),
-            img.get_statistics(roi=region_lr).median(),
-        )
+        # Compute Otsu threshold for each corner
+        try:
+            gradient_bg_ul = img.get_histogram(roi=region_ul).get_threshold().value()
+            gradient_bg_ur = img.get_histogram(roi=region_ur).get_threshold().value()
+            gradient_bg_ll = img.get_histogram(roi=region_ll).get_threshold().value()
+            gradient_bg_lr = img.get_histogram(roi=region_lr).get_threshold().value()
+            self.g_corners = (
+                gradient_bg_ul,
+                gradient_bg_ur,
+                gradient_bg_ll,
+                gradient_bg_lr,
+            )
+        except:
+            pass
 
-    def _gradient_value(self, index, gradient_corners):
+    def _gradient_value(self, index):
         """Calculates a reference threshold according to a linear
         interpolation gradient of luminosity from 4 corners of Tiny Seed"""
         (
@@ -716,7 +750,7 @@ class TinyScanner(Page):
             gradient_bg_ur,
             gradient_bg_ll,
             gradient_bg_lr,
-        ) = gradient_corners
+        ) = self.g_corners
 
         y_position = index % 12
         x_position = index // 12
@@ -735,8 +769,8 @@ class TinyScanner(Page):
         filtered = (
             gradient_bg_ul + gradient_bg_ur + gradient_bg_ll + gradient_bg_lr
         )  # weight 4/6 - 67% average
-        filtered += 2 * gradient  # weight 2/6 = 33% raw gradient
-        filtered //= 6
+        filtered += 6 * gradient  # weight 6/10 = 60% raw gradient
+        filtered //= 10
         return filtered
 
         # return gradient #pure gradient
@@ -744,68 +778,60 @@ class TinyScanner(Page):
     def _detect_tiny_seed(self, img):
         """Detects Tiny Seed as a bright blob against a dark surface"""
 
+        # Load settings for the grid type we are using
+        aspect_low = self.grid_settings["aspect_low"]
+        aspect_high = self.grid_settings["aspect_high"]
+
         def _choose_rect(rects):
+            # Choose the best rectangle based on aspect ratio
+            best_rect = None
+            best_aspect_diff = float("inf")
+            medium_aspect = (aspect_low + aspect_high) / 2
             for rect in rects:
                 aspect = rect[2] / rect[3]
                 if (
-                    rect[0]
-                    and rect[1]
+                    rect[0] >= 0
+                    and rect[1] >= 0
                     and (rect[0] + rect[2]) < img.width()
                     and (rect[1] + rect[3]) < img.height()
-                    and aspect_low < aspect < 1.3
+                    and aspect_low < aspect < aspect_high
                 ):
-                    return rect
-            return None
+                    aspect_diff = abs(aspect - medium_aspect)
+                    if aspect_diff < best_aspect_diff:
+                        best_aspect_diff = aspect_diff
+                        best_rect = rect
+            return best_rect
 
-        # Big lenses cameras seems to distor aspect ratio to 1.1
-        aspect_low = 1.1 if self.ctx.camera.cam_id in (OV2640_ID, OV5642_ID) else 1.2
-        stats = img.get_statistics()
-        # # Debug stats
-        # img.draw_string(10,10,"Mean:"+str(stats.mean()))
-        # img.draw_string(10,30,"Median:"+str(stats.median()))
-        # img.draw_string(10,50,"UQ:"+str(stats.uq()))
-        # img.draw_string(10,70,"LQ:"+str(stats.lq()))
+        try:
+            self.blob_otsu = img.get_histogram().get_threshold().value()
+        except:
+            pass
+        blob_threshold = [(self.blob_otsu, 255)]
+        blobs = img.find_blobs(
+            blob_threshold,
+            x_stride=30,
+            y_stride=30,
+            area_threshold=5000,
+        )
 
-        # Luminosity
-        luminosity = stats.median() * 2
-        attempts = 3
-        while attempts:
-            blob_threshold = [
-                (luminosity, 255),
-            ]
-            blobs = img.find_blobs(
-                blob_threshold,
-                x_stride=50,
-                y_stride=50,
-                area_threshold=10000,
-            )
-            # Debug blobs
-            # for blob in blobs:
-            #     img.draw_rectangle(blob.rect(), color=(255,125*attempts,0), thickness=3)
-            rects = []
-            for blob in blobs:
-                rects.append(blob.rect())
-            rect = _choose_rect(rects)
-            if rect:
-                break
-            attempts -= 1
-            # Reduce luminosity threshold to try again
-            luminosity *= 7
-            luminosity //= 10
-        # # Debug attempts
-        # img.draw_string(10,10,"Attempts:"+str(attempts))
+        # Debug: Optionally draw the blobs to see them during development
+        # for blob in blobs:
+        #     img.draw_rectangle(blob.rect(), color=(255, 125 * attempts, 0), thickness=3)
+
+        # Choose the best rectangle that matches the aspect ratio
+        rect = _choose_rect([blob.rect() for blob in blobs])
+
+        # If a rectangle was found, draw it
         if rect:
-            # Outline Tiny Seed
             outline = (
                 rect[0] - 1,
                 rect[1] - 1,
                 rect[2] + 1,
                 rect[3] + 1,
             )
-            if self.capturing:
-                img.draw_rectangle(outline, lcd.WHITE, thickness=4)
-            else:
-                img.draw_rectangle(outline, lcd.WHITE, thickness=2)
+            thickness = 4 if self.capturing else 2
+            img.draw_rectangle(outline, lcd.WHITE, thickness=thickness)
+
         return rect
 
     def _draw_grid(self, img):
@@ -826,7 +852,7 @@ class TinyScanner(Page):
                     lcd.WHITE,
                 )
 
-    def _detect_and_draw_punches(self, img, gradient_corners):
+    def _detect_and_draw_punches(self, img):
         """Applies gradient threshold to detect punched(black painted) bits"""
         page_seed_numbers = [0] * 12
         index = 0
@@ -860,9 +886,7 @@ class TinyScanner(Page):
                 #     img.draw_string(70,25,"143:"+str(gradient_ref))
 
                 # Defines a threshold to evaluate if the dot is considered punched
-                punch_threshold = (
-                    self._gradient_value(index, gradient_corners) * 4
-                ) // 5  # ~-20%
+                punch_threshold = self._gradient_value(index)
                 # Sensor image will be downscaled on small displays
                 punch_thickness = (
                     1 if self.ctx.display.height() > SMALLEST_HEIGHT else 2
@@ -878,36 +902,13 @@ class TinyScanner(Page):
                         page_seed_numbers[word_index], bit
                     )
                 index += 1
-        # print(page_seed_numbers)
         return page_seed_numbers
 
-    def _set_camera_sensitivity(self):
-        if self.ctx.camera.cam_id == OV7740_ID:
-            # reduce sensitivity to avoid saturated reflactions
-            # luminance high level, default=0x78
-            sensor.__write_reg(0x24, 0x48)  # pylint: disable=W0212
-            # luminance low level, default=0x68
-            sensor.__write_reg(0x25, 0x44)  # pylint: disable=W0212
-            # Disable frame integrtation (night mode)
-            sensor.__write_reg(0x15, 0x00)  # pylint: disable=W0212
-
     def _run_camera(self):
-        """Turns camera on, returns True if image fills full screen"""
+        """Turns camera on and rotates screen to landscape"""
         sensor.run(1)
         self.ctx.display.clear()
-        if self.ctx.display.width() < 320:
-            full_screen = True
-        else:
-            full_screen = False
-            self.ctx.display.outline(
-                39,
-                1,
-                241,
-                321,
-            )
         self.ctx.display.to_landscape()
-
-        return full_screen
 
     def _exit_camera(self):
         sensor.run(0)
@@ -915,7 +916,9 @@ class TinyScanner(Page):
         self.ctx.display.clear()
 
     def _check_buttons(self, w24, page):
-        enter_or_touch = self.ctx.input.enter_event() or self.ctx.input.touch_event()
+        enter_or_touch = self.ctx.input.enter_event() or self.ctx.input.touch_event(
+            validate_position=False
+        )
         if w24:
             if page == 0 and enter_or_touch:
                 self.capturing = True
@@ -991,9 +994,8 @@ class TinyScanner(Page):
             message = t("TOUCH or ENTER to capture")
         self.ctx.display.draw_centered_text(message)
         precamera_ticks = time.ticks_ms()
-        self.ctx.camera.initialize_sensor(grayscale=True)
-        self._set_camera_sensitivity()
-        full_screen = self._run_camera()
+        self.ctx.camera.initialize_run(mode=BINARY_GRID_MODE)
+        self.ctx.display.to_landscape()
         postcamera_ticks = time.ticks_ms()
         # check how much time camera took to retain message on the screen
         if precamera_ticks + FLASH_MSG_TIME > postcamera_ticks:
@@ -1004,6 +1006,7 @@ class TinyScanner(Page):
         # # Debug FPS 1/4
         # clock = time.clock()
         # fps = 0
+        self.ctx.display.clear()
         while True:
             # # Debug FPS 2/4
             # clock.tick()
@@ -1012,24 +1015,21 @@ class TinyScanner(Page):
             img = self.ctx.camera.snapshot()
             rect = self._detect_tiny_seed(img)
             if rect:
-                gradient_corners = self._gradient_corners(rect, img)
-                # print(gradient_corners)
+                self._gradient_corners(rect, img)
+                # print(self.g_corners)
                 # map_regions
                 self._map_punches_region(rect, page)
-                page_seed_numbers = self._detect_and_draw_punches(img, gradient_corners)
+                page_seed_numbers = self._detect_and_draw_punches(img)
                 self._draw_grid(img)
             if board.config["type"] == "m5stickv":
                 img.lens_corr(strength=1.0, zoom=0.56)
             # # Debug FPS 3/4
             # img.draw_string(10,100,str(fps))
-            if full_screen:
-                lcd.display(img)
-            else:
+            if board.config["type"] == "amigo":
                 # Centralize image on top Amigo's screen
-                # Offset x = 480 - 320 - 2 = 158 if not flipped
-                oft_x = 2 if self.ctx.display.flipped_x_coordinates else 158
-                lcd.display(img, oft=(oft_x, 40))
-
+                lcd.display(img, oft=(80, 40))
+            else:
+                lcd.display(img)
             if page_seed_numbers:
                 if w24:
                     if page == 0:  # Scanning first 12 words (page 0)

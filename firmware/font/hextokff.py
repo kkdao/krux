@@ -36,8 +36,17 @@ DEFAULT_CODEPOINTS = [
 ]
 TRANSLATIONS_DIR = "../../i18n/translations"
 
+JAPANESE_CODEPOINT_MIN = 0x3000  # defined as WIDEFONT_CODEPOINT_MIN in MaixPy
+JAPANESE_CODEPOINT_MAX = 0x30FF
+CHINESE_CODEPOINT_MIN = 0x4E00
+CHINESE_CODEPOINT_MAX = 0x9FFF
+KOREAN_CODEPOINT_MIN = 0xAC00
+KOREAN_CODEPOINT_MAX = 0xD7A3
+FULLHALFWIDTH_CODEPOINT_MIN = 0xFF00
+FULLHALFWIDTH_CODEPOINT_MAX = 0xFFEF  # defined as WIDEFONT_CODEPOINT_MAX in MaixPy
 
-def hextokff(filename=None, width=None, height=None):
+
+def hextokff(filename=None, width=None, height=None, wide_glyphs=None):
     """Convert a hex formatted bitmap font file to a kff file"""
 
     if filename is None or width is None or height is None:
@@ -52,16 +61,34 @@ def hextokff(filename=None, width=None, height=None):
 
     # Scan the translations folder and build a set of unique codepoints used
     # across all translations
-    used_codepoints = set(DEFAULT_CODEPOINTS)
+    if not wide_glyphs:
+        used_codepoints = set(DEFAULT_CODEPOINTS)
+    else:
+        used_codepoints = set()
     for translation_file in os.listdir(TRANSLATIONS_DIR):
-        file_path = os.path.join(TRANSLATIONS_DIR, translation_file)
+        current_translation = translation_file[:5]
+        if not wide_glyphs or current_translation in wide_glyphs:
+            file_path = os.path.join(TRANSLATIONS_DIR, translation_file)
 
-        with open(file_path, "r", encoding="utf-8") as file:
-            translations = json.load(file)
+            with open(file_path, "r", encoding="utf-8") as file:
+                translations = json.load(file)
 
-        for translation in translations.values():
-            for char in translation:
-                used_codepoints.add(ord(char))
+            for translation in translations.values():
+                for char in translation:
+                    # If Japanese, Chinese, or Korean codepoint
+                    if (
+                        JAPANESE_CODEPOINT_MIN <= ord(char) <= JAPANESE_CODEPOINT_MAX
+                        or CHINESE_CODEPOINT_MIN <= ord(char) <= CHINESE_CODEPOINT_MAX
+                        or KOREAN_CODEPOINT_MIN <= ord(char) <= KOREAN_CODEPOINT_MAX
+                        or FULLHALFWIDTH_CODEPOINT_MIN
+                        <= ord(char)
+                        <= FULLHALFWIDTH_CODEPOINT_MAX
+                    ):
+                        # only include if wide_glyphs required by this locale
+                        if wide_glyphs and current_translation in wide_glyphs:
+                            used_codepoints.add(ord(char))
+                    elif wide_glyphs is None:
+                        used_codepoints.add(ord(char))
 
     with open(filename, "r", encoding="utf-8") as input_file:
         # Read in a hex formatted bitmap font file

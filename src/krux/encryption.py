@@ -28,7 +28,7 @@ import hashlib
 import ucryptolib
 from .baseconv import base_encode, base_decode
 from .sd_card import SDHandler
-from .krux_settings import Settings, PBKDF2_HMAC_ECB, PBKDF2_HMAC_CBC, AES_BLOCK_SIZE
+from .krux_settings import Settings, PBKDF2_HMAC_ECB, PBKDF2_HMAC_CBC
 from embit.wordlists.bip39 import WORDLIST
 
 
@@ -47,6 +47,7 @@ VERSION_NUMBER = {
     "AES-CBC": PBKDF2_HMAC_CBC,
 }
 
+AES_BLOCK_SIZE = 16
 QR_CODE_ITER_MULTIPLE = 10000
 
 
@@ -63,12 +64,13 @@ class AESCipher:
         data_bytes = raw.encode("latin-1") if isinstance(raw, str) else raw
         if i_vector:
             encryptor = ucryptolib.aes(self.key, mode, i_vector)
-            data_bytes = i_vector + data_bytes
         else:
             encryptor = ucryptolib.aes(self.key, mode)
         encrypted = encryptor.encrypt(
             data_bytes + b"\x00" * ((16 - (len(data_bytes) % 16)) % 16)
         )
+        if i_vector:
+            encrypted = i_vector + encrypted
         return base_encode(encrypted, 64)
 
     def decrypt(self, encrypted, mode, i_vector=None):

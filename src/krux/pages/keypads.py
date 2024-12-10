@@ -22,6 +22,7 @@
 
 import math
 import time
+import lcd
 from ..krux_settings import t
 from ..themes import theme
 from ..input import (
@@ -171,7 +172,7 @@ class Keypad:
                     custom_color = theme.toggle_color
                 if key is not None:
                     offset_x = x
-                    key_offset_x = (self.key_h_spacing - len(key) * FONT_WIDTH) // 2
+                    key_offset_x = (self.key_h_spacing - lcd.string_width_px(key)) // 2
                     key_offset_x += offset_x
                     if (
                         key_index < len(self.keys)
@@ -215,6 +216,26 @@ class Keypad:
                                 self.key_v_spacing - 1,
                             )
                 key_index += 1
+
+    def draw_keyset_index(self):
+        """Indicates the current keyset index with a small circle"""
+        if len(self.keysets) == 1:
+            return
+        bar_height = FONT_HEIGHT // 6
+        bar_length = FONT_WIDTH
+        bar_padding = FONT_WIDTH // 3
+        x_offset = (
+            self.ctx.display.width() - (bar_length + bar_padding) * len(self.keysets)
+        ) // 2
+        for i in range(len(self.keysets)):
+            color = theme.fg_color if i == self.keyset_index else theme.frame_color
+            self.ctx.display.fill_rectangle(
+                x_offset + (bar_length + bar_padding) * i,
+                self.y_keypad_map[-1] + 2,
+                bar_length,
+                bar_height,
+                color,
+            )
 
     def get_valid_index(self):
         """Moves current index to a valid position"""
@@ -261,18 +282,18 @@ class Keypad:
             while self.ctx.input.page_value() == PRESSED:
                 self._next_key()
                 self.get_valid_index()
-                self._clean_dispaly_keypad_area()
+                self._clean_keypad_area()
                 self.draw_keys()
                 time.sleep_ms(100)
         elif btn == FAST_BACKWARD:
             while self.ctx.input.page_prev_value() == PRESSED:
                 self._previous_key()
                 self.get_valid_index()
-                self._clean_dispaly_keypad_area()
+                self._clean_keypad_area()
                 self.draw_keys()
                 time.sleep_ms(100)
 
-    def _clean_dispaly_keypad_area(self):
+    def _clean_keypad_area(self):
         self.ctx.display.fill_rectangle(
             0,
             self.keypad_offset(),

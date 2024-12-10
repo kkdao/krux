@@ -1,10 +1,4 @@
-from .shared_mocks import (
-    snapshot_generator,
-    MockQRPartParser,
-    SNAP_SUCCESS,
-    SNAP_REPEAT_QRCODE,
-    SNAP_FIND_QRCODES_FAIL,
-)
+import pytest
 
 
 def test_init(mocker, m5stickv):
@@ -16,19 +10,38 @@ def test_init(mocker, m5stickv):
     assert isinstance(c, Camera)
 
 
-def test_initialize_sensor(mocker, m5stickv):
+def test_initialize_sensors(mocker, multiple_devices):
+    import board
     import krux
-    from krux.camera import Camera, OV7740_ID
+    from krux.camera import Camera, OV7740_ID, OV2640_ID, GC0328_ID, GC2145_ID
 
-    mocker.patch("krux.camera.sensor.get_id", lambda: OV7740_ID)
+    SENSORS_LIST = [
+        (OV7740_ID, "config_ov_7740"),
+        (OV2640_ID, "config_ov_2640"),
+        (GC0328_ID, None),
+        (GC2145_ID, "config_gc_2145"),
+    ]
 
-    c = Camera()
+    for sensor_id, config_method in SENSORS_LIST:
+        mocker.patch("krux.camera.sensor.get_id", lambda: sensor_id)
+        c = Camera()
+        if config_method:
+            mocker.spy(c, config_method)
+        c.initialize_sensor()
+        if config_method:
+            getattr(c, config_method).assert_called()
 
-    mocker.spy(c, "config_ov_7740")
+        if board.config["type"] == "cube" or c.cam_id == OV2640_ID:
+            krux.camera.sensor.set_vflip.assert_called_with(1)
+        else:
+            krux.camera.sensor.set_vflip.assert_not_called()
+        krux.camera.sensor.set_vflip.reset_mock()
 
-    c.initialize_sensor()
+        if board.config["type"] == "cube":
+            krux.camera.sensor.set_hmirror.assert_called_with(1)
+        else:
+            krux.camera.sensor.set_hmirror.assert_not_called()
 
-    c.config_ov_7740.assert_called()
     krux.camera.sensor.reset.assert_called()
     krux.camera.sensor.set_pixformat.assert_called()
     assert (
@@ -42,161 +55,81 @@ def test_initialize_sensor(mocker, m5stickv):
     )
 
 
-def test_initialize_sensor_ov2640(mocker, m5stickv):
-    import krux
-    from krux.camera import Camera, OV2640_ID
-
-    mocker.patch("krux.camera.sensor.get_id", lambda: OV2640_ID)
-
-    c = Camera()
-
-    mocker.spy(c, "config_ov_2640")
-
-    c.initialize_sensor()
-
-    c.config_ov_2640.assert_called()
-
-    krux.camera.sensor.reset.assert_called()
-    krux.camera.sensor.set_pixformat.assert_called()
-    assert (
-        krux.camera.sensor.set_pixformat.call_args.args[0]._extract_mock_name()
-        == "mock.RGB565"
-    )
-    krux.camera.sensor.set_framesize.assert_called()
-    assert (
-        krux.camera.sensor.set_framesize.call_args.args[0]._extract_mock_name()
-        == "mock.QVGA"
-    )
-    krux.camera.sensor.set_vflip.assert_called()
-
-
-def test_capture_qr_code_loop(mocker, m5stickv):
-    mocker.patch(
-        "krux.camera.sensor.snapshot", new=snapshot_generator(outcome=SNAP_SUCCESS)
-    )
-    mocker.patch("krux.camera.QRPartParser", new=MockQRPartParser)
-    import krux
+def test_fail_to_initialize_sensor(mocker, m5stickv):
     from krux.camera import Camera
 
+    # Mock sensor.reset to raise an exception
+    mocker.patch("sensor.reset", side_effect=Exception)
     c = Camera()
-
-    prev_parsed_count = -1
-
-    def progress_callback(total_count, parsed_count, is_new):
-        if parsed_count == 0:
-            krux.camera.sensor.run.assert_called_with(1)
-        nonlocal prev_parsed_count
-        assert parsed_count > prev_parsed_count
-        if parsed_count > 0:
-            assert is_new
-            assert total_count == MockQRPartParser.TOTAL
-        prev_parsed_count = parsed_count
-        return False
-
-    result, format = c.capture_qr_code_loop(progress_callback)
-    assert result == "12345678910"
-    assert format == MockQRPartParser.FORMAT
-    assert prev_parsed_count == MockQRPartParser.TOTAL - 1
-    krux.camera.sensor.run.assert_called_with(0)
-    krux.camera.wdt.feed.assert_called()
+    with pytest.raises(Exception):
+        c.initialize_sensor()
+    assert c.mode == None
 
 
-def test_capture_qr_code_loop_returns_early_when_requested(mocker, m5stickv):
-    mocker.patch(
-        "krux.camera.sensor.snapshot", new=snapshot_generator(outcome=SNAP_SUCCESS)
-    )
-    mocker.patch("krux.camera.QRPartParser", new=MockQRPartParser)
-    import krux
+def test_initialize_run_no_sensor(mocker, m5stickv):
     from krux.camera import Camera
 
+    mocker.patch("sensor.reset", side_effect=Exception)
     c = Camera()
-
-    prev_parsed_count = -1
-
-    def progress_callback(total_count, parsed_count, is_new):
-        if parsed_count == 0:
-            krux.camera.sensor.run.assert_called_with(1)
-        nonlocal prev_parsed_count
-        assert parsed_count > prev_parsed_count
-        if parsed_count > 0:
-            assert is_new
-            assert total_count == MockQRPartParser.TOTAL
-        prev_parsed_count = parsed_count
-        return True
-
-    result, format = c.capture_qr_code_loop(progress_callback)
-    assert result is None
-    assert format is None
-    assert prev_parsed_count < MockQRPartParser.TOTAL - 1
-    krux.camera.sensor.run.assert_called_with(0)
-    krux.camera.wdt.feed.assert_called()
+    try:
+        # Fails to initialize at boot
+        c.initialize_sensor()
+    except:
+        pass
+    with pytest.raises(ValueError, match="No camera found"):
+        c.initialize_run()
+    assert c.mode == None
 
 
-def test_capture_qr_code_loop_skips_missing_qrcode(mocker, m5stickv):
-    mocker.patch(
-        "krux.camera.sensor.snapshot",
-        new=snapshot_generator(outcome=SNAP_FIND_QRCODES_FAIL),
-    )
-    mocker.patch("krux.camera.QRPartParser", new=MockQRPartParser)
+def test_initialize_run(mocker, m5stickv):
+    from krux.camera import Camera, QR_SCAN_MODE
+
+    c = Camera()
+    c.initialize_run()
+    assert c.mode == QR_SCAN_MODE
+    assert c.cam_id is not None
+
+
+def test_initialize_run_from_binary_grid_mode(mocker, m5stickv):  # GrayScale mode
+    from krux.camera import Camera, BINARY_GRID_MODE
+
+    c = Camera()
+    c.initialize_run(mode=BINARY_GRID_MODE)
+    assert c.mode == BINARY_GRID_MODE
+    assert c.cam_id is not None
+
+
+def test_initialize_run_with_anti_glair_enabled(mocker, m5stickv):
+    from krux.camera import Camera, ANTI_GLARE_MODE
+
+    c = Camera()
+    c.initialize_sensor(mode=ANTI_GLARE_MODE)
+    assert c.mode == ANTI_GLARE_MODE
+    assert c.cam_id is not None
+
+
+def test_toggle_antiglare(mocker, m5stickv):
     import krux
-    from krux.camera import Camera
-
-    c = Camera()
-
-    prev_parsed_count = -1
-
-    def progress_callback(total_count, parsed_count, is_new):
-        if parsed_count == 0:
-            krux.camera.sensor.run.assert_called_with(1)
-        nonlocal prev_parsed_count
-        if parsed_count == prev_parsed_count:
-            assert not is_new
-        else:
-            assert parsed_count > prev_parsed_count
-            if parsed_count > 0:
-                assert is_new
-                assert total_count == MockQRPartParser.TOTAL
-        prev_parsed_count = parsed_count
-        return False
-
-    result, format = c.capture_qr_code_loop(progress_callback)
-    assert result == "134567891011"
-    assert format == MockQRPartParser.FORMAT
-    assert prev_parsed_count == MockQRPartParser.TOTAL - 1
-    krux.camera.sensor.run.assert_called_with(0)
-    krux.camera.wdt.feed.assert_called()
-
-
-def test_capture_qr_code_loop_skips_duplicate_qrcode(mocker, m5stickv):
-    mocker.patch(
-        "krux.camera.sensor.snapshot",
-        new=snapshot_generator(outcome=SNAP_REPEAT_QRCODE),
+    from krux.camera import (
+        Camera,
+        OV7740_ID,
+        OV2640_ID,
+        GC0328_ID,
+        GC2145_ID,
+        QR_SCAN_MODE,
+        ANTI_GLARE_MODE,
     )
-    mocker.patch("krux.camera.QRPartParser", new=MockQRPartParser)
-    import krux
-    from krux.camera import Camera
 
-    c = Camera()
+    SENSORS_LIST = [OV7740_ID, OV2640_ID, GC0328_ID, GC2145_ID]
 
-    prev_parsed_count = -1
-
-    def progress_callback(total_count, parsed_count, is_new):
-        if parsed_count == 0:
-            krux.camera.sensor.run.assert_called_with(1)
-        nonlocal prev_parsed_count
-        if parsed_count == prev_parsed_count:
-            assert not is_new
-        else:
-            assert parsed_count > prev_parsed_count
-            if parsed_count > 0:
-                assert is_new
-                assert total_count == MockQRPartParser.TOTAL
-        prev_parsed_count = parsed_count
-        return False
-
-    result, format = c.capture_qr_code_loop(progress_callback)
-    assert result == "134567891011"
-    assert format == MockQRPartParser.FORMAT
-    assert prev_parsed_count == MockQRPartParser.TOTAL - 1
-    krux.camera.sensor.run.assert_called_with(0)
-    krux.camera.wdt.feed.assert_called()
+    for sensor_id in SENSORS_LIST:
+        mocker.patch("krux.camera.sensor.get_id", lambda: sensor_id)
+        c = Camera()
+        mocker.spy(c, "has_antiglare")
+        c.initialize_sensor()
+        if c.has_antiglare():
+            assert c.mode == QR_SCAN_MODE
+            c.toggle_antiglare()
+            assert c.mode == ANTI_GLARE_MODE
+            c.toggle_antiglare()
+            assert c.mode == QR_SCAN_MODE

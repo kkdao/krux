@@ -3,28 +3,27 @@ from unittest.mock import patch
 from . import create_ctx
 from ..shared_mocks import mock_context
 from ..test_sd_card import mocker_sd_card_ok
-
-
-@pytest.fixture
-def mocker_printer(mocker):
-    mocker.patch("krux.printers.thermal.AdafruitPrinter", new=mocker.MagicMock())
+from .test_login import mocker_printer
 
 
 ################### Test menus
+class RebootException(Exception):
+    """Exception to simulate rebooting the device."""
+
+    pass
 
 
 def test_settings_m5stickv(m5stickv, mocker, mocker_printer):
     from krux.pages.settings_page import SettingsPage
     from krux.input import BUTTON_ENTER, BUTTON_PAGE, BUTTON_PAGE_PREV
     from krux.krux_settings import Settings, CategorySetting, NumberSetting
-    from krux.translations import translation_table
+    from krux.translations import available_languages
 
-    tlist = list(translation_table)
-    index_pt = tlist.index("pt-BR")
-    index_next = (index_pt + 1) % (len(tlist))
+    index_pt = available_languages.index("pt-BR")
+    index_next = (index_pt + 1) % (len(available_languages))
 
     cases = [
-        (  # 0
+        (  # 0 - Change Network
             (
                 # Default Wallet
                 BUTTON_ENTER,
@@ -32,10 +31,11 @@ def test_settings_m5stickv(m5stickv, mocker, mocker_printer):
                 BUTTON_PAGE,
                 BUTTON_ENTER,
                 # Change network
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),  # Cycle through 2 options
+                BUTTON_PAGE_PREV,  # Go back to the second option - testnet
                 BUTTON_ENTER,
                 # Leave Default Wallet
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Leave Settings
                 BUTTON_PAGE_PREV,
@@ -43,15 +43,13 @@ def test_settings_m5stickv(m5stickv, mocker, mocker_printer):
             ),
             lambda: Settings().wallet.network == "test",
         ),
-        (  # 1
+        (  # 1 Printer Settings
             (
                 # Hardware
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Printer
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Thermal (printer)
                 BUTTON_PAGE,
@@ -64,84 +62,78 @@ def test_settings_m5stickv(m5stickv, mocker, mocker_printer):
                 BUTTON_PAGE_PREV,
                 BUTTON_ENTER,
                 # Back to Printer
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Back to settings
                 BUTTON_PAGE,
                 BUTTON_ENTER,
                 # Leave Settings
-                BUTTON_PAGE_PREV,
-                BUTTON_PAGE_PREV,
-                BUTTON_PAGE_PREV,
+                *([BUTTON_PAGE_PREV] * 3),
                 BUTTON_ENTER,
             ),
             lambda: Settings().hardware.printer.thermal.adafruit.baudrate == 19200,
         ),
-        (  # 2
+        (  # 2 Language Settings
             (
                 # Language
-                BUTTON_PAGE,
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 3),
                 BUTTON_ENTER,
                 # Change Locale
                 BUTTON_PAGE,
                 BUTTON_ENTER,
             ),
-            lambda: Settings().i18n.locale == tlist[index_next],
+            lambda: Settings().i18n.locale == available_languages[index_next],
         ),
-        (  # 3
+        (  # 3  Printer numeric settings
             (
                 # Hardware
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Printer
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Thermal (printer)
                 BUTTON_PAGE,
                 BUTTON_ENTER,
                 # Paper Width
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Change width
                 # Remove digit (become 38)
-                BUTTON_PAGE_PREV,
-                BUTTON_PAGE_PREV,
-                BUTTON_PAGE_PREV,
+                *([BUTTON_PAGE_PREV] * 3),
                 BUTTON_ENTER,
-                # Add 9
+                # Add 0 (become 380)
                 BUTTON_PAGE_PREV,
                 BUTTON_ENTER,
                 # Go
-                BUTTON_PAGE,
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 3),
                 BUTTON_ENTER,
                 # Back to Thermal
-                BUTTON_PAGE,
-                BUTTON_PAGE,
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 4),
                 BUTTON_ENTER,
                 # Back to Printer
-                BUTTON_PAGE,
-                BUTTON_PAGE,
+                *([BUTTON_PAGE] * 2),
                 BUTTON_ENTER,
                 # Back to settings
                 BUTTON_PAGE,
                 BUTTON_ENTER,
                 # Leave Settings
-                BUTTON_PAGE_PREV,
-                BUTTON_PAGE_PREV,
-                BUTTON_PAGE_PREV,
+                *([BUTTON_PAGE_PREV] * 3),
                 BUTTON_ENTER,
             ),
-            lambda: Settings().hardware.printer.thermal.adafruit.paper_width == 389,
+            lambda: Settings().hardware.printer.thermal.adafruit.paper_width == 380,
+        ),
+        (  # 4 Change theme
+            (
+                *([BUTTON_PAGE] * 6),  # Move to "Appearance"
+                BUTTON_ENTER,  # Enter "Appearance"
+                BUTTON_PAGE,  # Move to "Theme"
+                BUTTON_ENTER,  # Enter "Theme"
+                BUTTON_PAGE,  # Change to "Light"
+                BUTTON_ENTER,  # Confirm "Light"
+                BUTTON_ENTER,  # Confirm reboot
+            ),
+            lambda: Settings().appearance.theme == "Light",
         ),
     ]
     case_num = 0
@@ -151,7 +143,6 @@ def test_settings_m5stickv(m5stickv, mocker, mocker_printer):
 
         ctx = create_ctx(mocker, case[0])
         settings_page = SettingsPage(ctx)
-
         Settings().i18n.locale = "pt-BR"
         settings_page.settings()
 
@@ -159,21 +150,60 @@ def test_settings_m5stickv(m5stickv, mocker, mocker_printer):
         assert case[1]()
 
 
+@pytest.fixture(params=["m5stickv", "cube"])
+def bkl_control_devices(request):
+    return request.getfixturevalue(request.param)
+
+
+def test_change_brightness(bkl_control_devices, mocker):
+    from krux.pages.settings_page import SettingsPage
+    from krux.input import BUTTON_ENTER, BUTTON_PAGE, BUTTON_PAGE_PREV
+    from krux.krux_settings import Settings
+
+    BTN_SEQUENCE = [
+        *([BUTTON_PAGE] * 2),  # Move to "Hardware"
+        BUTTON_ENTER,  # Enter "Hardware"
+        BUTTON_PAGE,  # Move to "Display"
+        BUTTON_ENTER,  # Enter "Display"
+        BUTTON_PAGE,  # Change "Brightness"
+        BUTTON_ENTER,  # Enter "Brightness"
+        *([BUTTON_PAGE] * 2),  # Move to "Back"
+        BUTTON_ENTER,  # Confirm "Back"
+        *([BUTTON_PAGE_PREV] * 3),  # Move to "Back"
+        BUTTON_ENTER,  # Confirm "Back"
+    ]
+    ctx = create_ctx(mocker, BTN_SEQUENCE)
+    settings_page = SettingsPage(ctx)
+    previous_brightness = int(Settings().hardware.display.brightness)
+    settings_page.settings()
+
+    assert ctx.input.wait_for_button.call_count == len(BTN_SEQUENCE)
+    assert Settings().hardware.display.brightness == str(previous_brightness + 1)
+
+
 def test_settings_on_amigo_tft(amigo, mocker, mocker_printer):
     import krux
     from krux.pages.settings_page import SettingsPage
     from krux.input import BUTTON_TOUCH
-    from krux.krux_settings import Settings, CategorySetting, NumberSetting
-    from krux.translations import translation_table
-    from krux.themes import WHITE, RED, GREEN, ORANGE
+    from krux.krux_settings import Settings, CategorySetting
+    from krux.translations import available_languages, ref_array
+    from krux.translations.pt import translation_array as br_array
+    from krux.themes import WHITE, GREEN, ORANGE
 
-    tlist = list(translation_table)
-    index_pt = tlist.index("pt-BR")
-    index_next = (index_pt + 1) % (len(tlist))
-    text_pt = translation_table[tlist[index_pt]][1177338798] + "\n" + tlist[index_pt]
-    text_next = (
-        translation_table[tlist[index_next]][1177338798] + "\n" + tlist[index_next]
-    )
+    index_pt = available_languages.index("pt-BR")
+    index_next = (index_pt + 1) % (len(available_languages))
+    slug_index = ref_array.index(1177338798)
+    text_pt = br_array[slug_index] + "\n" + available_languages[index_pt]
+
+    # Get translations for the next language
+    next_language = available_languages[index_next]
+    # Construct the path to the nested module
+    next_module_path = f"krux.translations.{next_language[:2]}"
+    # Import the top-level module (krux)
+    next_trans_module = __import__(next_module_path, fromlist=[""])
+    # Access the translation_array variable from the nested module
+    next_trans_array = getattr(next_trans_module, "translation_array")
+    text_next = next_trans_array[slug_index] + "\n" + available_languages[index_next]
 
     PREV_INDEX = 0
     GO_INDEX = 1
@@ -196,7 +226,7 @@ def test_settings_on_amigo_tft(amigo, mocker, mocker_printer):
                 NEXT_INDEX,
                 GO_INDEX,
                 # Back from wallet
-                2,
+                3,
                 # Leave Settings
                 LEAVE_INDEX,
             ),
@@ -249,7 +279,7 @@ def test_settings_on_amigo_tft(amigo, mocker, mocker_printer):
                 mocker.call(text_pt, WHITE),
                 mocker.call(text_next, WHITE),
             ],
-            lambda: Settings().i18n.locale == tlist[index_next],
+            lambda: Settings().i18n.locale == available_languages[index_next],
             CategorySetting,
         ),
     ]
@@ -276,6 +306,48 @@ def test_settings_on_amigo_tft(amigo, mocker, mocker_printer):
         assert ctx.input.wait_for_button.call_count == len(case[0])
 
         assert case[2]()
+
+
+def test_change_display_type_on_amigo(amigo, mocker):
+    from krux.pages.settings_page import SettingsPage
+    from krux.input import BUTTON_ENTER, BUTTON_PAGE, BUTTON_PAGE_PREV
+    from krux.krux_settings import Settings, CategorySetting, NumberSetting
+
+    BTN_SEQUENCE = [
+        *([BUTTON_PAGE] * 2),  # Move to "Hardware"
+        BUTTON_ENTER,  # Enter "Hardware"
+        BUTTON_PAGE,  # Change to "Display"
+        BUTTON_ENTER,  # Enter "Display"
+        BUTTON_ENTER,  # Enter "BGR colors"
+        BUTTON_PAGE,  # Change "BGR Type"
+        BUTTON_ENTER,  # Enter "BGR Type"
+        BUTTON_PAGE,  # Go to "Flipped X ..."
+        BUTTON_ENTER,  # Enter "Flipped X ..."
+        BUTTON_PAGE,  # Change "Flipped X ..."
+        BUTTON_ENTER,  # Enter "Flipped X ..."
+        BUTTON_PAGE,  # Go to "Inverted Colors"
+        BUTTON_ENTER,  # Enter "Inverted Colors"
+        BUTTON_PAGE,  # Change "Inverted Colors"
+        BUTTON_ENTER,  # Enter "Inverted Colors"
+        BUTTON_PAGE,  # Go to "Type"
+        BUTTON_ENTER,  # Enter "Type"
+        BUTTON_PAGE,  # Change "Type"
+        BUTTON_ENTER,  # Confirm "Warning"
+        BUTTON_PAGE_PREV,  # Confirm new setting
+        BUTTON_ENTER,  # Confirm "Type"
+        BUTTON_PAGE,  # Move to "Back"
+        BUTTON_ENTER,  # Confirm "Back" from display
+        *([BUTTON_PAGE_PREV] * 2),  # Move to "Back"
+        BUTTON_ENTER,  # Confirm "Back" from hardware
+        *([BUTTON_PAGE_PREV] * 3),  # Move to "Back"
+        BUTTON_ENTER,  # Confirm "Back" from settings
+    ]
+    ctx = create_ctx(mocker, BTN_SEQUENCE)
+    settings_page = SettingsPage(ctx)
+    settings_page.settings()
+
+    assert ctx.input.wait_for_button.call_count == len(BTN_SEQUENCE)
+    # assert Settings().hardware.display.bgr_type == "RGB"
 
 
 def test_encryption_pbkdf2_setting(m5stickv, mocker):
@@ -337,6 +409,87 @@ def test_restore_settings(amigo, mocker, mocker_sd_card_ok):
     mock_remove.assert_called_once_with("/" + FLASH_PATH + "/" + SETTINGS_FILENAME)
 
 
+def test_set_first_tc_code(amigo, mocker):
+    from krux.pages.settings_page import SettingsPage
+    from krux.input import BUTTON_ENTER
+    from ..shared_mocks import MockFile, mock_open
+
+    TC_CODE_EXTENDED_HASH = b"z\xc0\x99\xac\x01\x1f\xef\x91\xb6\xd5\xbd\xa8\xdc\xfc\x14\xcco-A\x9d\xba\xde\xaf\xe3\xe1{@0t\xb2\x85{"
+    mocker.patch(
+        "krux.pages.fill_flash.FillFlash.fill_flash_with_camera_entropy",
+        new=mocker.MagicMock(),
+    )
+    mocker.patch("machine.unique_id", return_value=b"\x01" * 32)
+    mock_file = MockFile()
+    mocker.patch("builtins.open", mock_open(mock_file))
+    ctx = create_ctx(mocker, [BUTTON_ENTER])
+    ctx.tc_code_enabled = False
+    settings_page = SettingsPage(ctx)
+    settings_page.capture_from_keypad = mocker.MagicMock(return_value="123456")
+    settings_page.enter_modify_tc_code()
+    assert ctx.tc_code_enabled == True
+    assert mock_file.write_data == TC_CODE_EXTENDED_HASH
+
+
+def test_set_first_tc_code_not_match(amigo, mocker):
+    from krux.pages.settings_page import SettingsPage
+    from krux.input import BUTTON_ENTER
+    from ..shared_mocks import MockFile, mock_open
+
+    CODES = ["123456", "654321"]
+
+    mock_file = MockFile()
+    ctx = create_ctx(mocker, [BUTTON_ENTER])
+    ctx.tc_code_enabled = False
+    settings_page = SettingsPage(ctx)
+    settings_page.capture_from_keypad = mocker.MagicMock(side_effect=CODES)
+    settings_page.enter_modify_tc_code()
+    assert ctx.tc_code_enabled == False
+    assert mock_file.write_data == b""
+
+
+def test_set_new_tc_code(amigo, mocker):
+    from krux.pages.settings_page import SettingsPage
+    from krux.input import BUTTON_ENTER
+    from ..shared_mocks import MockFile, mock_open
+
+    TC_CODE_EXTENDED_HASH = b"z\xc0\x99\xac\x01\x1f\xef\x91\xb6\xd5\xbd\xa8\xdc\xfc\x14\xcco-A\x9d\xba\xde\xaf\xe3\xe1{@0t\xb2\x85{"
+    mocker.patch(
+        "krux.pages.fill_flash.FillFlash.fill_flash_with_camera_entropy",
+        new=mocker.MagicMock(),
+    )
+    mocker.patch(
+        "krux.pages.tc_code_verification.TCCodeVerification.capture", return_value=True
+    )
+    mocker.patch("machine.unique_id", return_value=b"\x01" * 32)
+    mock_file = MockFile()
+    mocker.patch("builtins.open", mock_open(mock_file))
+    ctx = create_ctx(mocker, [BUTTON_ENTER])
+    ctx.tc_code_enabled = True
+    settings_page = SettingsPage(ctx)
+    settings_page.capture_from_keypad = mocker.MagicMock(return_value="123456")
+    settings_page.enter_modify_tc_code()
+    assert ctx.tc_code_enabled == True
+    assert mock_file.write_data == TC_CODE_EXTENDED_HASH
+
+
+def test_wrong_code_set_new_tc_code(amigo, mocker):
+    from krux.pages.settings_page import SettingsPage
+    from krux.input import BUTTON_ENTER
+    from ..shared_mocks import MockFile, mock_open
+
+    # TC Code check returns false
+    mocker.patch(
+        "krux.pages.tc_code_verification.TCCodeVerification.capture", return_value=False
+    )
+    mock_file = MockFile()
+    ctx = create_ctx(mocker, [BUTTON_ENTER])
+    ctx.tc_code_enabled = True
+    settings_page = SettingsPage(ctx)
+    settings_page.enter_modify_tc_code()
+    assert mock_file.write_data == b""
+
+
 def test_save_settings_on_sd(amigo, mocker, mocker_sd_card_ok):
     from krux.pages.settings_page import SettingsPage
     from krux.krux_settings import Settings, SD_PATH
@@ -354,8 +507,7 @@ def test_save_settings_on_sd(amigo, mocker, mocker_sd_card_ok):
     settings_page.settings()
     settings_page.flash_text.assert_has_calls(
         [
-            mocker.call("Your changes will be kept on the SD card.", duration=2500),
-            mocker.call("Changes persisted to SD card!", duration=2500),
+            mocker.call("Settings stored on SD card.", duration=2500),
         ]
     )
 
@@ -372,26 +524,30 @@ def test_leave_settings_without_changes(amigo, mocker):
     BTN_SEQUENCES = [
         [
             # Change something then give up
-            BUTTON_ENTER,  # Change "Bitcoin"
+            BUTTON_ENTER,  # Change "Default Wallet"
+            BUTTON_PAGE,  # Move to "Network"
+            BUTTON_ENTER,  # Enter "Network"
             BUTTON_PAGE,  # Change to testnet
-            BUTTON_ENTER,  # Confirm testnet
-            BUTTON_ENTER,  # Change "Bitcoin" again
+            BUTTON_ENTER,  # Confirm "testnet"
+            BUTTON_ENTER,  # Change "Network" again
             BUTTON_PAGE,  # Change back to mainnet
             BUTTON_ENTER,  # Confirm mainnet
-            BUTTON_PAGE_PREV,  # Move to "Back"
+            *([BUTTON_PAGE] * 2),  # Move to "Back"
             BUTTON_ENTER,  # Confirm "Back"
+            BUTTON_PAGE_PREV,  # Move to "Back"
+            BUTTON_ENTER,  # Leave settings
         ],
         [
             # Change persist then give up
-            [BUTTON_PAGE] * 3,  # Move to "Persist"
-            BUTTON_ENTER,  # Change "Persist"
+            *([BUTTON_PAGE] * 4),  # Move to "Persist"
+            BUTTON_ENTER,  # Enter "Persist"
             BUTTON_PAGE,  # Change to SD
             BUTTON_ENTER,  # Confirm SD
             BUTTON_ENTER,  # Change "Persist" again
             BUTTON_PAGE,  # Change back to flash
             BUTTON_ENTER,  # Confirm flash
-            BUTTON_PAGE_PREV,  # Move to "Back"
-            BUTTON_ENTER,  # Confirm "Back"
+            *([BUTTON_PAGE] * 4),  # Move to "Back"
+            BUTTON_ENTER,  # Leave settings
         ],
         [
             # Don't change anything
@@ -405,16 +561,10 @@ def test_leave_settings_without_changes(amigo, mocker):
         settings_page = SettingsPage(ctx)
         settings_page.flash_text = mocker.MagicMock()
         settings_page.settings()
-        settings_page.flash_text.assert_has_calls(
-            [
-                mocker.call(
-                    "Your changes will be kept on device flash storage.", duration=2500
-                ),
-            ]
-        )
         persisted_to_flash_call = mocker.call(
-            "Changes persisted to Flash!", duration=2500
+            "Settings stored internally on flash.", duration=2500
         )
+        assert ctx.input.wait_for_button.call_count == len(btn_sequence)
         assert persisted_to_flash_call not in settings_page.flash_text.call_args_list
 
 
@@ -424,12 +574,12 @@ def test_leave_settings_with_changes(amigo, mocker, mocker_sd_card_ok):
     from krux.input import BUTTON_ENTER, BUTTON_PAGE, BUTTON_PAGE_PREV
 
     BTN_SEQUENCE = [
-        BUTTON_ENTER,  # Go to "Wallet"
+        BUTTON_ENTER,  # Go to "Default Wallet"
         BUTTON_PAGE,  # Go to "Network"
         BUTTON_ENTER,  # Enter "Network"
         BUTTON_PAGE,  # Change to testnet
         BUTTON_ENTER,  # Confirm "testnet"
-        BUTTON_PAGE,  # Move to back
+        *([BUTTON_PAGE] * 2),  # Move to back
         BUTTON_ENTER,  # Leave "Wallet"
         BUTTON_PAGE_PREV,  # Move to "Back"
         BUTTON_ENTER,  # Confirm "Back"
@@ -440,12 +590,10 @@ def test_leave_settings_with_changes(amigo, mocker, mocker_sd_card_ok):
 
     # Leave settings without changes
     settings_page.settings()
+    assert ctx.input.wait_for_button.call_count == len(BTN_SEQUENCE)
     settings_page.flash_text.assert_has_calls(
         [
-            mocker.call(
-                "Your changes will be kept on device flash storage.", duration=2500
-            ),
-            mocker.call("Changes persisted to Flash!", duration=2500),
+            mocker.call("Settings stored internally on flash.", duration=2500),
         ]
     )
 

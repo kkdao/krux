@@ -26,6 +26,7 @@ from . import Page, Menu, MENU_EXIT, MENU_CONTINUE
 from ..sd_card import SDHandler
 from ..krux_settings import t
 from ..format import generate_thousands_separator, render_decimal_separator
+from ..display import BOTTOM_PROMPT_LINE
 
 LIST_FILE_DIGITS = 9  # len on large devices per menu item
 LIST_FILE_DIGITS_SMALL = 5  # len on small devices per menu item
@@ -56,12 +57,12 @@ class FileManager(Page):
         while True:
             # if is a dir then list all files in it
             if SDHandler.dir_exists(path):
-                items = []
-                menu_items = []
+                items = []  # simple reference for the files shown on the menu_items
+                menu_items = []  # the user menu to interact
 
                 if path != SD_ROOT_PATH:
                     items.append("..")
-                    menu_items.append(("..", lambda: MENU_EXIT))
+                    menu_items.append(("../", lambda: MENU_EXIT))
 
                 # sorts by name ignorecase
                 dir_files = sorted(os.listdir(path), key=str.lower)
@@ -78,8 +79,10 @@ class FileManager(Page):
 
                 del dir_files
 
-                # show sorted folders first than sorted files
-                for filename in directories + files:
+                # show sorted folders first then sorted files
+                for i, filename in enumerate(directories + files):
+                    is_directory = i < len(directories)
+
                     extension_match = False
                     if isinstance(file_extension, str):
                         # No extension filter or matches
@@ -91,31 +94,38 @@ class FileManager(Page):
                                 extension_match = True
                                 break
 
-                    if (
-                        extension_match
-                        # Is a directory
-                        or SDHandler.dir_exists(path + "/" + filename)
-                    ):
+                    if extension_match or is_directory:
                         items.append(filename)
-                        display_filename = filename
-                        if len(filename) >= custom_start_digits + 2 + custom_end_digts:
+                        display_filename = filename + "/" if is_directory else filename
+
+                        if (
+                            len(display_filename)
+                            >= custom_start_digits + 2 + custom_end_digts
+                        ):
                             display_filename = (
-                                filename[:custom_start_digits]
+                                display_filename[:custom_start_digits]
                                 + ".."
-                                + filename[len(filename) - custom_end_digts :]
+                                + display_filename[
+                                    len(display_filename) - custom_end_digts :
+                                ]
                             )
                         menu_items.append(
                             (
                                 display_filename,
-                                lambda file=filename: select_file_handler(
-                                    path + "/" + file
+                                (
+                                    (lambda: MENU_EXIT)
+                                    if is_directory
+                                    else (
+                                        lambda file=filename: select_file_handler(
+                                            path + "/" + file
+                                        )
+                                    )
                                 ),
                             )
                         )
 
                 # We need to add this option because /sd can be empty!
                 items.append("Back")
-                menu_items.append((t("Back"), lambda: MENU_EXIT))
 
                 submenu = Menu(self.ctx, menu_items)
                 index, _ = submenu.run_loop()
@@ -139,11 +149,17 @@ class FileManager(Page):
 
     def show_file_details(self, file):
         """Handler to print file info when selecting a file in the file explorer"""
-        if SDHandler.dir_exists(file):
-            return MENU_EXIT
 
         self.display_file(file)
         self.ctx.input.wait_for_button()
+        return MENU_CONTINUE
+
+    def load_file(self, file):
+        """Handler to ask if will load selected file in the file explorer"""
+
+        self.display_file(file)
+        if self.prompt(t("Load?"), BOTTOM_PROMPT_LINE):
+            return MENU_EXIT
         return MENU_CONTINUE
 
     def display_file(self, file):

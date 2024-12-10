@@ -1,4 +1,5 @@
 import pytest
+from .shared_mocks import MockFile, mock_open
 
 
 @pytest.fixture
@@ -6,7 +7,7 @@ def tdata(mocker):
     from collections import namedtuple
     from ur.ur import UR
     from urtypes.crypto.psbt import PSBT
-    from krux.baseconv import base_encode
+    from krux.bbqr import encode_bbqr
 
     TEST_MNEMONIC = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
 
@@ -29,12 +30,14 @@ def tdata(mocker):
     P2WPKH_PSBT_B58 = "UUucvki6KWyS35DhetbWPw1DiaccbHKywScF96E8VUwEnN1gss947UasRfkNxtrkzCeHziHyMCuoiQ2mSYsbYXuV3YwYBZwFh1c6xtBAEK1aDgPwMgqf74xTzf3m4KH4iUU5nHTqroDpoRZR59meafTCUBChZ5NJ8MoUdKE6avyYdSm5kUb4npmFpMpJ9S3qd2RedHMoQFRiXK3jwdH81emAEsFYSW3Kb7caPcWjkza4S4EEWWbaggofGFmxE5gNNg4A4LNC2ZUGLsALZffNvg3yh3qg6rFxhkiyzWc44kx9Khp6Evm1j4Njh8kjifkngLTPFtX3uWNLAB1XrvpPMx6kkkhr7RnFVrA4JsDp5BwVGAXBoSBLTqweFevZ5"
     P2WPKH_PSBT_B64 = "cHNidP8BAHECAAAAAc88WMMpgq4gUIjZvUnrmwKs3009rnalFsazBrFd46FOAAAAAAD9////Anw/XQUAAAAAFgAULzSqHPAKU7BVopGgOn1F8KaYi1KAlpgAAAAAABYAFOZq/v/Dg45x8KJ7B+OwDt5q6OFgAAAAAAABAR8A4fUFAAAAABYAFNDEo+8J6Ze26Z45flGP4+QaEYyhIgYC56slN7XUnpcDCargbp5J82zhyf671E7I4NHMoLT5wxkYc8XaClQAAIABAACAAAAAgAAAAAAAAAAAACICA11J7M1U0AmeQ2did8em1GJdYR2oil30m/lReneRp3elGHPF2gpUAACAAQAAgAAAAIABAAAAAAAAAAAA"
     P2WPKH_PSBT_UR_PSBT = UR("crypto-psbt", PSBT(P2WPKH_PSBT).to_cbor())
+    P2WPKH_PSBT_BBQR_PSBT = P2WPKH_PSBT  # BBQr is decoded to binary before being passed to the PSBT constructor
 
     SIGNED_P2WPKH_PSBT = b'psbt\xff\x01\x00q\x02\x00\x00\x00\x01\xcf<X\xc3)\x82\xae P\x88\xd9\xbdI\xeb\x9b\x02\xac\xdfM=\xaev\xa5\x16\xc6\xb3\x06\xb1]\xe3\xa1N\x00\x00\x00\x00\x00\xfd\xff\xff\xff\x02|?]\x05\x00\x00\x00\x00\x16\x00\x14/4\xaa\x1c\xf0\nS\xb0U\xa2\x91\xa0:}E\xf0\xa6\x98\x8bR\x80\x96\x98\x00\x00\x00\x00\x00\x16\x00\x14\xe6j\xfe\xff\xc3\x83\x8eq\xf0\xa2{\x07\xe3\xb0\x0e\xdej\xe8\xe1`\x00\x00\x00\x00\x00\x01\x01\x1f\x00\xe1\xf5\x05\x00\x00\x00\x00\x16\x00\x14\xd0\xc4\xa3\xef\t\xe9\x97\xb6\xe9\x9e9~Q\x8f\xe3\xe4\x1a\x11\x8c\xa1"\x02\x02\xe7\xab%7\xb5\xd4\x9e\x97\x03\t\xaa\xe0n\x9eI\xf3l\xe1\xc9\xfe\xbb\xd4N\xc8\xe0\xd1\xcc\xa0\xb4\xf9\xc3\x19G0D\x02 >e\xff;L\xd4\x7f\x12\x1f\xa7\xc9\x82(F\x18\xdb\x801G\xb0V\xd3\x93\x94\xd4\xecB\x0e\xfd\xfck\xa1\x02 l\xbd\xd8\x8a\xc5\x18l?.\xfd$%1\xedy\x17uvQ\xac&#t\xf3\xd3\x1d\x85\xd6\x16\xcdj\x81\x01\x00\x00\x00'
     SIGNED_P2WPKH_PSBT_B43 = "ZF1XCF+Z*C015XRRLXYR*QCNLC+GG904*T:WKMSDWEXX2VS57*S7X9FJGRN/0Q0$-OBHIJ8/B.C-BG*2ITD2B9C5VJ0AVI5GAH7LMHJ3.EY3KL*/6I*ERF8GTDFTN5KA6Z-NUJ0UV/2NBXH43OSU3T98BSCAIZ.:HWRXU/L.HMUDEJEO$3.C/80-LULS/CM0DV*$3*EM/736NIXS-0+:E-A4TDYZRGW9W181MRBNJ6A*O$VO/VT+SAX+TVO4DH.$Q$MKU6OFVP94EX8LXOK6F69TJI8T.38.BLI.55W3/928OSS-1SK022VB+Q0WZ3F33NB*EE:$*YD+*1BK.SU1EV3M2C4UG.PA.T--YRP8BB/QH:V-9F4B/XUZYCDUDAYG/CR4VT15"
     SIGNED_P2WPKH_PSBT_B58 = "2HkajtjMgNpiuo5QQYDP4zEc3vrWa1f7qgwNkMySr8EJbPoEtguwAQ2qkgA7k7NzAvLjA3FA4C9ejVxLx8vSemVQxcda4LjDyrbpinuPeSakKBjvR1XrCa5jxU29xfiaYjLTKDPPAPHCdTJy4r7Zcc9kqaTk9NxoqMhdUiNqxfyuBoDeCwMemE2UE4D5GrDMMuhJvJ2vyJkK6w9a1P7cE6gwL4CVx7LrLtwRGbUUiQ3tkr8ve57kWjyTLT1FALNVVyNfDb4kJccqZ6Nv1riwPaRRUpr2yaBkTogG4nAK31ywpiAwqxZpswjUF6gpbnLJUQDsowNjYeW9NEA83S2oL3FshKWsfcB1vhKT5DvCQZzo"
     SIGNED_P2WPKH_PSBT_B64 = "cHNidP8BAHECAAAAAc88WMMpgq4gUIjZvUnrmwKs3009rnalFsazBrFd46FOAAAAAAD9////Anw/XQUAAAAAFgAULzSqHPAKU7BVopGgOn1F8KaYi1KAlpgAAAAAABYAFOZq/v/Dg45x8KJ7B+OwDt5q6OFgAAAAAAABAR8A4fUFAAAAABYAFNDEo+8J6Ze26Z45flGP4+QaEYyhIgIC56slN7XUnpcDCargbp5J82zhyf671E7I4NHMoLT5wxlHMEQCID5l/ztM1H8SH6fJgihGGNuAMUewVtOTlNTsQg79/GuhAiBsvdiKxRhsPy79JCUx7XkXdXZRrCYjdPPTHYXWFs1qgQEAAAA="
     SIGNED_P2WPKH_PSBT_UR_PSBT = UR("crypto-psbt", PSBT(SIGNED_P2WPKH_PSBT).to_cbor())
+    SIGNED_P2WPKH_PSBT_BBQR_PSBT = encode_bbqr(SIGNED_P2WPKH_PSBT, "Z", "P")
 
     # Nested Segwit Singlesig
     P2SH_P2WPKH_PSBT = b'psbt\xff\x01\x00r\x02\x00\x00\x00\x01v\xefk\xf2\xbd\xd0@\xf3\xc1\xd8:\xcc\xb9t9\xf1\xab\xb1\xa5V\xad\x1d\x0fR\x96\x81\xff\xa7\xe8\xca\x94\x8a\x01\x00\x00\x00\x00\xfd\xff\xff\xff\x02\x9c=]\x05\x00\x00\x00\x00\x17\xa9\x14%\x1d\xd1\x14W\xa2Y\xc3\xbaG\xe5\xcc\xa3q\x7f\xe4!N\x02\x98\x87\x80\x96\x98\x00\x00\x00\x00\x00\x16\x00\x14\xe6j\xfe\xff\xc3\x83\x8eq\xf0\xa2{\x07\xe3\xb0\x0e\xdej\xe8\xe1`\x00\x00\x00\x00\x00\x01\x01 \x00\xe1\xf5\x05\x00\x00\x00\x00\x17\xa9\x143l\xaa\x13\xe0\x8b\x96\x08\n2\xb5\xd8\x18\xd5\x9bJ\xb3\xb3gB\x87\x01\x04\x16\x00\x148\x97\x1fs\x93\x0fl\x14\x1d\x97z\xc4\xfdJr|\x85I5\xb3"\x06\x03\xa1\xaf\x80J\xc1\x08\xa8\xa5\x17\x82\x19\x8c-\x03K(\xbf\x90\xc8\x80?ZS\xf7bv\xfai\xa4\xea\xe7\x7f\x18s\xc5\xda\n1\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x16\x00\x14p\xbe\xb1\xe0JP\t@\xe9\xf3\xab\xaaf\xe1\xa4\x9a\xc5[\x8f5"\x02\x02\xa2\xfc\x89\x96\xc5&"H\xb5\xda\xef\xc5\xa4\xd0\xcd\xcd\x00\xc10G\xd0\xcb\x13\x02\x816\xeac\r\x87Z\x87\x18s\xc5\xda\n1\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -50,6 +53,19 @@ def tdata(mocker):
     SIGNED_P2SH_P2WPKH_PSBT_UR_PSBT = UR(
         "crypto-psbt", PSBT(SIGNED_P2SH_P2WPKH_PSBT).to_cbor()
     )
+
+    # Taproot Singlesig
+    P2TR_PSBT = b"psbt\xff\x01\x00\xa8\x02\x00\x00\x00\x01\xf9\xfe\xa6\x15\x16\xa0\x07\xe4v2WHAq\x8d\xc0\xda\\\x1a\xf6\xd9\x173\x7f\x06\x8eT\xda\xbeI\xbe?\x00\x00\x00\x00\x00\xfd\xff\xff\xff\x03:\x1e\x00\x00\x00\x00\x00\x00\"Q u\xe6_\x88=\xe5\x87'1\xd9\x8e\xa8o_\x08b\xf0\x929\xd0\xe9\xb0\x0fI\xf5\x92\x06\x9c\x18M\x02\xa2\xe8\x03\x00\x00\x00\x00\x00\x00\"Q \x9d-\x9bm\xe6\x0c\xdc\xddY\x07\xc1\xc0\x961I\x1b\xddCN\xee\xaa\x8a\xaf;;\xf1\x9dc\xd5>@\x99\xe8\x03\x00\x00\x00\x00\x00\x00\x16\x00\x14\xae\xcd\x1e\xdc>\xffe\xaa \x9d\x02\x15\xe7=p\x90]\xc1hl\x83\xbf+\x00O\x01\x045\x87\xcf\x03\xe0\x17\xd1\xbb\x80\x00\x00\x00\x01\x83\\\x0bQ!\x83v\xc6\x14UB\x8a\x9fG\xbf\xcc\xe1\xf6\xce\x83\x97\xea\xd7\xb0\x03\x87\xe9\xd9\xeaV\x83\x02\xcf\xbdq\x001\x1e\x0e\x85\x84L78r\x83\x149N\xb80*kPp\xd6\x92\xe4\x1b\x14\xba\x81\x80\x90\x10s\xc5\xda\nV\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x00\x01\x01+\x7f'\x00\x00\x00\x00\x00\x00\"Q \x06\xac\x82\xfc6\xdb\xb6\rHy\x1d\x81\xc3\xc1\xeb9\x7f\xa9s\xe4V\xc8\xc6\xfbT\xc1\x04!\x1f\x04{\x1a\x01\x03\x04\x00\x00\x00\x00!\x16E\xc6\xb1\xe44\x82<\xe9\xe6\xb4H\xfb\xc1\xe4\x05' 8:\r!(\x82\xbc\xbavSMwR\x8a\xad\x19\x00s\xc5\xda\nV\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x00\t\x00\x00\x00\x01\x17 E\xc6\xb1\xe44\x82<\xe9\xe6\xb4H\xfb\xc1\xe4\x05' 8:\r!(\x82\xbc\xbavSMwR\x8a\xad\x00!\x07 \xeb\x90P\x06\x8b\x01;\xde= M\xb5\x9a\xc5\xdb*\x1cx\xa8\xaa%\x07?\xbf.z\xd4\x9d\x05\x15\xc6\x19\x00s\xc5\xda\nV\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x01\x00\x00\x00\x01\x00\x00\x00\x01\x05  \xeb\x90P\x06\x8b\x01;\xde= M\xb5\x9a\xc5\xdb*\x1cx\xa8\xaa%\x07?\xbf.z\xd4\x9d\x05\x15\xc6\x00!\x07\xdc\xab\x8eB3\xd9\x14\xf2\x98\x08\x9e]\x8d;'a\x8a\x07\xf5!?\x89\x9a+\xbd\xbax\xfd\xb9\x02\xc5\xcf\x19\x00s\xc5\xda\nV\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x00\x00\x00\x00\n\x00\x00\x00\x01\x05 \xdc\xab\x8eB3\xd9\x14\xf2\x98\x08\x9e]\x8d;'a\x8a\x07\xf5!?\x89\x9a+\xbd\xbax\xfd\xb9\x02\xc5\xcf\x00\x00"
+    P2TR_PSBT_B43 = "$MYCB*Z8$F$U43$$$AYNPYV7P2O$0N:NND-4/R6WA3K5UCTN2W2UH1W+-OO$GDVLG22/ZLRV1Q8.E8J7N420ZF-M4JE.DG07WFA+62X4.4ZA-OVEWYBN:QE73QV1QF+4N7281Z2I5S1N6Y9644OHRR*SE9ZV14W2K$43KBK:SHCYT$B0YG1-J6YXZKKN4676SPPD4DGPLT3L.8E117P1-7E4YOJWP2IPW81BC3TQ3YX2OP8MONZD+O8DV95:K93RLFWQSYIDM2YKLVSKZ*+K:WWO6-3H4:.J97WXTVTUL3/+8HAKSL9+8BPQHJK-MQ5SALS79II3T:P*C6D*1ZYSDDAZ82F0W*WRR91/:YOFKC9EFMQ1CSK2HN-HCLBXVRKS4/G:6MJ61OP$08QL0X:YAJGL*IL:D*/56V1/ZFDEM*3*F-NVZNQAIEFMF08Z2MM0I$S2B61W$EY++.6X**AH0CWY9DWE4D2U*E3AECQE2Y5R1ZHTOG1MKTZ3GHTBD7F02K-DPZL+ABUVMIELQWT:M+5.FT9-RAY3OS05+/J-S*BIOI0Q6YT$UQ-RI/.429T2/:66YNAHKCVH3J7AGS46TAHCI$JSJ9*NPE2XZWW+1L30SDVFNULC4T75VP:XBBXP9I750LGP1:8ZDP0YF*BKWQZ93-U2Q0EJSJ9WB3A0ZJGLNQ57BXMVSRPDDSI+7D9B8ZKBG7X+:U84V5DMYSW3W/*I*/*UB8MJQV0+2BSQTARB$DND/9N9.+T-6O8D*74K5M+LXP*-4I:P79JX-RJH2-MKW:X5DSO13Y0AASMVOAS/28/F9Q4$B*VL.$RW0ZO.UH5T7ODJS47.MA$AK3RQ/3L4O+KWU5E:SJ..:*X:GU*HCV9-HX7$2T-/9ZAY7J3W.7W+1Y-$IM6-"
+    P2TR_PSBT_B58 = "2C2dk2DpdViMV7XztuFHDKYpnMmQYUHxBC97tosVRCndABjAHMnx5Vjw2Hugev5DyrLPXfM58fxKHCcGdReZxLRr4ZDaXRy7SCssavWr9NgP7aPqbGnDZJirLEgau5p12f1FmEwoSMD9ZnrjoFwPZF5AhYr3R7ixUn7Kf7LDW63sdPV45a5z6CeUQvDELrxxyKVG4qej4GEH5DgED8PWFNQ4nq8cKU2TJL8oNZrMMSGSopG1YzEvoFf7fUzpZR6dC2hgBnEBGZWTccnAoA418aauwZU2dBqWYire6nhXsKZF4cVKweMFt8ZGFT3YRjM5uqc4i2ii4a9XrFJQd7DTLqsNHY2fUSfNSfuTdBSy7zh4eiDEU44XJcnBp1QJzb63nrAJnZjRnz6NcmRY2YrRgDq4LgRAyPCYs7UpGa1JgCK3hupDH8bPCbbtECqBXQ8nuZtNk3H6weCR4vuri2r9mMWhXY5thnyhcTjAwi51Cir3iHnjKcGPepL15U6BnNjfTAoQ6wKX3nN2pZDhn5RwyDpv7qPnouhLds7dKEn64HJqqBTVrDjTuWHNCBUMj6TcXTuPdSYH8CeL8YMfcMjhbRPHh1aSyhgLWuwBqL1eSW7wTAGLfJXoHcCJsMheMDma9MEMeP4UEAeEhNVQ5QEFFTCRH8MkMev4Fo6q4L39yhT1C5LAKkRMSnkJwKuUSAxqW4YiYH68dFjsW1MFwfXngDpcxS1QVBzhpW95Bb32VCLWHQzbCx3XcEMi5Q77MVW6aVyMHzYUNadH4Wbhn4QxQM11gPW2LQNyqwZjuxEesFJ8sqX2pCRHX6J5mBJKzyT9pyhvvQkxMu"
+    P2TR_PSBT_B64 = "cHNidP8BAKgCAAAAAfn+phUWoAfkdjJXSEFxjcDaXBr22RczfwaOVNq+Sb4/AAAAAAD9////AzoeAAAAAAAAIlEgdeZfiD3lhycx2Y6ob18IYvCSOdDpsA9J9ZIGnBhNAqLoAwAAAAAAACJRIJ0tm23mDNzdWQfBwJYxSRvdQ07uqoqvOzvxnWPVPkCZ6AMAAAAAAAAWABSuzR7cPv9lqiCdAhXnPXCQXcFobIO/KwBPAQQ1h88D4BfRu4AAAAABg1wLUSGDdsYUVUKKn0e/zOH2zoOX6tewA4fp2epWgwLPvXEAMR4OhYRMNzhygxQ5TrgwKmtQcNaS5BsUuoGAkBBzxdoKVgAAgAEAAIAAAACAAAEBK38nAAAAAAAAIlEgBqyC/Dbbtg1IeR2Bw8HrOX+pc+RWyMb7VMEEIR8EexoBAwQAAAAAIRZFxrHkNII86ea0SPvB5AUnIDg6DSEogry6dlNNd1KKrRkAc8XaClYAAIABAACAAAAAgAAAAAAJAAAAARcgRcax5DSCPOnmtEj7weQFJyA4Og0hKIK8unZTTXdSiq0AIQcg65BQBosBO949IE21msXbKhx4qKolBz+/LnrUnQUVxhkAc8XaClYAAIABAACAAAAAgAEAAAABAAAAAQUgIOuQUAaLATvePSBNtZrF2yoceKiqJQc/vy561J0FFcYAIQfcq45CM9kU8pgInl2NOydhigf1IT+Jmiu9unj9uQLFzxkAc8XaClYAAIABAACAAAAAgAAAAAAKAAAAAQUg3KuOQjPZFPKYCJ5djTsnYYoH9SE/iZorvbp4/bkCxc8AAA=="
+    P2TR_PSBT_UR_PSBT = UR("crypto-psbt", PSBT(P2TR_PSBT).to_cbor())
+
+    SIGNED_P2TR_PSBT = b'psbt\xff\x01\x00\xa8\x02\x00\x00\x00\x01\xf9\xfe\xa6\x15\x16\xa0\x07\xe4v2WHAq\x8d\xc0\xda\\\x1a\xf6\xd9\x173\x7f\x06\x8eT\xda\xbeI\xbe?\x00\x00\x00\x00\x00\xfd\xff\xff\xff\x03:\x1e\x00\x00\x00\x00\x00\x00"Q u\xe6_\x88=\xe5\x87\'1\xd9\x8e\xa8o_\x08b\xf0\x929\xd0\xe9\xb0\x0fI\xf5\x92\x06\x9c\x18M\x02\xa2\xe8\x03\x00\x00\x00\x00\x00\x00"Q \x9d-\x9bm\xe6\x0c\xdc\xddY\x07\xc1\xc0\x961I\x1b\xddCN\xee\xaa\x8a\xaf;;\xf1\x9dc\xd5>@\x99\xe8\x03\x00\x00\x00\x00\x00\x00\x16\x00\x14\xae\xcd\x1e\xdc>\xffe\xaa \x9d\x02\x15\xe7=p\x90]\xc1hl\x83\xbf+\x00\x00\x01\x01+\x7f\'\x00\x00\x00\x00\x00\x00"Q \x06\xac\x82\xfc6\xdb\xb6\rHy\x1d\x81\xc3\xc1\xeb9\x7f\xa9s\xe4V\xc8\xc6\xfbT\xc1\x04!\x1f\x04{\x1a\x01\x08B\x01@(\xb0\x7f\x8d\x19\x9a\xa5\xa3\xae_ ti\x10G\x95\xc3)\x18\x1e\xca=Lq^\x9ah\xe7\xb58=\x87\x80\xd8\x1a\xbd\x0bb\x06@}\xd2\x0c?\xd9G\xac\xe9!%{\xe0E\x8bY\xca\xedH\xebh`\xbc\xbb\x13\x00\x00\x00\x00'
+    SIGNED_P2TR_PSBT_B43 = "1.W6Z+4SFE49JJT-J.9MUIM8BKT/3M25COGC72:/-9L4Z*6IXB2KK$H2IC/44*CKWH2801.OB1F+5M*MTBOXC8*$8NXVL40OY41IL*F5QJ1AT4ZL4G8J.8X7IFBM-:XE+QQOY*4ODVY-67NBDJ.ZKY:KQ1S3O.ZJV*14GS7Z/KU+.9G8SBDR1NWSCJWD*7$/63DQ+ZW$4BU7.00/QBF$VXSTW0A9LK52C7RBVSQ4+S4+HSC2159G:4HJ8+QWX-DU.LK43L-7CHLHHKWRL/7ZK8S.A-T578YCDHTCH5O/3N/96SV$5ADQ+S82KECF-T7868W*INCWZ3U4G$V8$ON-/KWV3Z+4N37DNH.8U:-9:KJ5WW*7U67S-0V9K3T:GO19R-/Z*XBW$N9OE7P.I912.1JN+EM5KJXR*2NAB/WON6RP03U6YIP0C"
+    SIGNED_P2TR_PSBT_B58 = "297QokMrvCwY2Pjf3b1GUWQsM8EhryP2qMWTDeTDRo6WNptEQH54WkFSybF6uYEbxSJja2nwMM9mHqEbtkxYqriFdRs7fvU2tEHXK2Hx2Xycz7AEx2LRvADfUGtycCxvVV155wRPwruzecqi5pTAbYnh8Ds5pznRzTkgcnCVaoJbLvmjbE7b6BkWiY5LEYUvZ1wBdzaVhewCS32CXfQ516AC1Ky4G7Xf1rvoQeAdfoD4YV13zV8ifoWWz6A9avCZMREzXartA7igxQZSwZS3o36yrr6MTkfKgqRYs46fHNKud78PUugnEA3kDDKrTRUhioptPQ52hFrN6iswVE2EuHGttaFKZmtQa6Z2gBDrydus7iwrqx14EdzSVzKmY54AHWn23u6u9F1StHsW3sj7m"
+    SIGNED_P2TR_PSBT_B64 = "cHNidP8BAKgCAAAAAfn+phUWoAfkdjJXSEFxjcDaXBr22RczfwaOVNq+Sb4/AAAAAAD9////AzoeAAAAAAAAIlEgdeZfiD3lhycx2Y6ob18IYvCSOdDpsA9J9ZIGnBhNAqLoAwAAAAAAACJRIJ0tm23mDNzdWQfBwJYxSRvdQ07uqoqvOzvxnWPVPkCZ6AMAAAAAAAAWABSuzR7cPv9lqiCdAhXnPXCQXcFobIO/KwAAAQErfycAAAAAAAAiUSAGrIL8Ntu2DUh5HYHDwes5f6lz5FbIxvtUwQQhHwR7GgEIQgFAKLB/jRmapaOuXyB0aRBHlcMpGB7KPUxxXppo57U4PYeA2Bq9C2IGQH3SDD/ZR6zpISV74EWLWcrtSOtoYLy7EwAAAAA="
+    SIGNED_P2TR_PSBT_UR_PSBT = UR("crypto-psbt", PSBT(SIGNED_P2TR_PSBT).to_cbor())
 
     # Native Segwit Multisig
     P2WSH_PSBT = b'psbt\xff\x01\x00\xb2\x02\x00\x00\x00\x02\xadC\x87\x14J\xfae\x07\xe1>\xaeP\xda\x1b\xf1\xb5\x1ag\xb3\x0f\xfb\x8e\x0c[\x8f\x98\xf5\xb3\xb1\xa68Y\x00\x00\x00\x00\x00\xfd\xff\xff\xffig%Y\x0f\xb8\xe4r\xab#N\xeb\xf3\xbf\x04\xd9J\xc0\xba\x94\xf6\xa5\xa4\xf8B\xea\xdb\x9a\xd3c`\xd4\x01\x00\x00\x00\x00\xfd\xff\xff\xff\x02@B\x0f\x00\x00\x00\x00\x00"\x00 \xa9\x903\xc3\x86b3>Y\t\xae<=\x03\xbdq\x8d\xb2\x14Y\xfd\xd5P\x1e\xe8\xa0RaMY\xb4\xe2\xd8\xd2!\x01\x00\x00\x00\x00"\x00 \x8d\x02\x85\r\xab\x88^\xc5y\xbbm\xcb\x05\xd6 ;\x05\xf5\x17\x01\x86\xac\xb8\x90}l\xc1\xb4R\x99\xed\xd2\x00\x00\x00\x00O\x01\x045\x87\xcf\x04>b\xdf~\x80\x00\x00\x02A+I\x84\xd5I\xba^\xef\x1c\xa6\xe8\xf3u]\x9a\xe0\x16\xdam\x16ir\xca\x0eQ@6~\xddP\xda\x025\xb8K1\xdc8*|\xfbC\xba:{\x17K\xe9AaA\xe8\x16\xf6r[\xd1%\x12\xb5\xb2\xc4\xa5\xac\x14\x02\x08\xcbw0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80O\x01\x045\x87\xcf\x04\x9d\xb1\xd0\x00\x80\x00\x00\x02?\xd8\xd7;\xc7\xb8\x8c\xa4\x93Z\xa57\xbf8\x94\xd5\xe2\x88\x9f\xab4\x1ca\x8fJWo\x8f\x19\x18\xc2u\x02h\xc3\rV\x9d#j}\xccW\x1b+\xb1\xd2\xadO\xa9\xf9\xb3R\xa8\t6\xa2\x89\n\x99\xaa#\xdbx\xec\x14&\xbb\x83\xc40\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80O\x01\x045\x87\xcf\x04\xba\xc1H9\x80\x00\x00\x02\x1dO\xbe\xbd\xd9g\xe1\xafqL\t\x97\xd3\x8f\xcfg\x0b\\\xe9\xd3\x01\xc0D\x0b\xbc\xc3\xb6\xa2\x0e\xb7r\x1c\x03V\x8e\xa1\xf3`Q\x91n\xd1\xb6\x90\xc3\x9e\x12\xa8\xe7\x06\x03\xb2\x80\xbd0\xce_(\x1f)\x18\xa5Sc\xaa\x14s\xc5\xda\n0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x00\x01\x01+\x80\x96\x98\x00\x00\x00\x00\x00"\x00 \x89\x801pn\xdd\x9e\xb1"g\x85G\x15Q\xce\xa3_\x17\t\xa9o\x85\x96.2\xa0k\xf6~\xc7\x11$\x01\x05iR!\x02N\x8d\x08\x0c}}\xba\\G\xfe\xb6\xb1\xc8\x12M\xebbA\x17\xe5\x8d\x8d~\xb1J@\x04Oq\xdd\x97\xf2!\x03\x05a\xd4\x82\xad\xb9=\xf1\xef\x13\xe8ep\x1a\xf2$n\xf0\xa3l\xbc\x8c\xa5\x12=\x8e\xecw\xceN8\xc7!\x03h\x95r\xe2\x8b\x0f\xed\xa9\xd6\x98\x1c\x027\xd9\xe5\xde\xdb\xfe\xc1m\xe7\x14?h\n\x02\xed]\x15\x9fu\x87S\xae"\x06\x02N\x8d\x08\x0c}}\xba\\G\xfe\xb6\xb1\xc8\x12M\xebbA\x17\xe5\x8d\x8d~\xb1J@\x04Oq\xdd\x97\xf2\x1c&\xbb\x83\xc40\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x00\x00\x00\x00\x01\x00\x00\x00"\x06\x03\x05a\xd4\x82\xad\xb9=\xf1\xef\x13\xe8ep\x1a\xf2$n\xf0\xa3l\xbc\x8c\xa5\x12=\x8e\xecw\xceN8\xc7\x1c\x02\x08\xcbw0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x00\x00\x00\x00\x01\x00\x00\x00"\x06\x03h\x95r\xe2\x8b\x0f\xed\xa9\xd6\x98\x1c\x027\xd9\xe5\xde\xdb\xfe\xc1m\xe7\x14?h\n\x02\xed]\x15\x9fu\x87\x1cs\xc5\xda\n0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x00\x00\x00\x00\x01\x00\x00\x00\x00\x01\x01+\x80\x96\x98\x00\x00\x00\x00\x00"\x00 3w\xad03\xd1\x05\x9c\xf1\xd25\xbb\x12%\xfc\xa2\xa4\xbf&\xc9R\xd5?o\xef\xc3:-UD\x8d\xc5\x01\x05iR!\x02"\x821\x12\xe5\xcc\x88K\x91\x16\xcb!B\x0c\xc7\x92\x98$\xcd/\xe8\xb7#[\xf9\x92\xe8\xae\xde\x14l"!\x02\x83\xcdG\xe5Sm\xcby\xe7\x11\x830\xe8\xe4\x80B\x12\xf6\x96\x19\xf1\xd6\xec\x99\r\xc75\xef\xb9\xce\xc5t!\x03\x0b\x90\xed.\x86\xba\xd7\xf2\xa4\xfe\x97i\xbbA}{\xa9\xca\xa1\x12H\x07\xdb\xfb6-\xfb\xee\xb6^~\x01S\xae"\x06\x02"\x821\x12\xe5\xcc\x88K\x91\x16\xcb!B\x0c\xc7\x92\x98$\xcd/\xe8\xb7#[\xf9\x92\xe8\xae\xde\x14l"\x1c\x02\x08\xcbw0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00"\x06\x02\x83\xcdG\xe5Sm\xcby\xe7\x11\x830\xe8\xe4\x80B\x12\xf6\x96\x19\xf1\xd6\xec\x99\r\xc75\xef\xb9\xce\xc5t\x1c&\xbb\x83\xc40\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00"\x06\x03\x0b\x90\xed.\x86\xba\xd7\xf2\xa4\xfe\x97i\xbbA}{\xa9\xca\xa1\x12H\x07\xdb\xfb6-\xfb\xee\xb6^~\x01\x1cs\xc5\xda\n0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01iR!\x02\xad!\xd9\xad(\xab\x99\xac~\xdf\xd9\x1e"!O\x11YS\xab\t\xd1\xd5X\x10\x92\xfbG\xbd\xa5\x92r\xfe!\x03\xa0};\xe0\xba\xd6<\x805\xd2\x1c\x97\xb4\x10\x89\r=:\x19\xd2\xe4\x03\xaf\xb3\xfc\xfch&\xaa&<v!\x03\xa1\xa8C\xfa-A\xd9;\xd6u)a\x91_nD\x8at\x19$J>\x02\xb8\xf4\xcfb\xbc\xc6\xa7\xa2kS\xae"\x02\x02\xad!\xd9\xad(\xab\x99\xac~\xdf\xd9\x1e"!O\x11YS\xab\t\xd1\xd5X\x10\x92\xfbG\xbd\xa5\x92r\xfe\x1c\x02\x08\xcbw0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x01\x00\x00\x00\x00\x00\x00\x00"\x02\x03\xa0};\xe0\xba\xd6<\x805\xd2\x1c\x97\xb4\x10\x89\r=:\x19\xd2\xe4\x03\xaf\xb3\xfc\xfch&\xaa&<v\x1cs\xc5\xda\n0\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x01\x00\x00\x00\x00\x00\x00\x00"\x02\x03\xa1\xa8C\xfa-A\xd9;\xd6u)a\x91_nD\x8at\x19$J>\x02\xb8\xf4\xcfb\xbc\xc6\xa7\xa2k\x1c&\xbb\x83\xc40\x00\x00\x80\x01\x00\x00\x80\x00\x00\x00\x80\x02\x00\x00\x80\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -100,11 +116,13 @@ def tdata(mocker):
             "P2WPKH_PSBT_B58",
             "P2WPKH_PSBT_B64",
             "P2WPKH_PSBT_UR_PSBT",
+            "P2WPKH_PSBT_BBQR_PSBT",
             "SIGNED_P2WPKH_PSBT",
             "SIGNED_P2WPKH_PSBT_B43",
             "SIGNED_P2WPKH_PSBT_B58",
             "SIGNED_P2WPKH_PSBT_B64",
             "SIGNED_P2WPKH_PSBT_UR_PSBT",
+            "SIGNED_P2WPKH_PSBT_BBQR_PSBT",
             "P2SH_P2WPKH_PSBT",
             "P2SH_P2WPKH_PSBT_B43",
             "P2SH_P2WPKH_PSBT_B58",
@@ -115,6 +133,16 @@ def tdata(mocker):
             "SIGNED_P2SH_P2WPKH_PSBT_B58",
             "SIGNED_P2SH_P2WPKH_PSBT_B64",
             "SIGNED_P2SH_P2WPKH_PSBT_UR_PSBT",
+            "P2TR_PSBT",
+            "P2TR_PSBT_B43",
+            "P2TR_PSBT_B58",
+            "P2TR_PSBT_B64",
+            "P2TR_PSBT_UR_PSBT",
+            "SIGNED_P2TR_PSBT",
+            "SIGNED_P2TR_PSBT_B43",
+            "SIGNED_P2TR_PSBT_B58",
+            "SIGNED_P2TR_PSBT_B64",
+            "SIGNED_P2TR_PSBT_UR_PSBT",
             "P2WSH_PSBT",
             "P2WSH_PSBT_B43",
             "P2WSH_PSBT_B58",
@@ -154,11 +182,13 @@ def tdata(mocker):
         P2WPKH_PSBT_B58,
         P2WPKH_PSBT_B64,
         P2WPKH_PSBT_UR_PSBT,
+        P2WPKH_PSBT_BBQR_PSBT,
         SIGNED_P2WPKH_PSBT,
         SIGNED_P2WPKH_PSBT_B43,
         SIGNED_P2WPKH_PSBT_B58,
         SIGNED_P2WPKH_PSBT_B64,
         SIGNED_P2WPKH_PSBT_UR_PSBT,
+        SIGNED_P2WPKH_PSBT_BBQR_PSBT,
         P2SH_P2WPKH_PSBT,
         P2SH_P2WPKH_PSBT_B43,
         P2SH_P2WPKH_PSBT_B58,
@@ -169,6 +199,16 @@ def tdata(mocker):
         SIGNED_P2SH_P2WPKH_PSBT_B58,
         SIGNED_P2SH_P2WPKH_PSBT_B64,
         SIGNED_P2SH_P2WPKH_PSBT_UR_PSBT,
+        P2TR_PSBT,
+        P2TR_PSBT_B43,
+        P2TR_PSBT_B58,
+        P2TR_PSBT_B64,
+        P2TR_PSBT_UR_PSBT,
+        SIGNED_P2TR_PSBT,
+        SIGNED_P2TR_PSBT_B43,
+        SIGNED_P2TR_PSBT_B58,
+        SIGNED_P2TR_PSBT_B64,
+        SIGNED_P2TR_PSBT_UR_PSBT,
         P2WSH_PSBT,
         P2WSH_PSBT_B43,
         P2WSH_PSBT_B58,
@@ -198,7 +238,7 @@ def test_init_singlesig(mocker, m5stickv, tdata):
     from krux.psbt import PSBTSigner
     from krux.key import Key
     from krux.wallet import Wallet
-    from krux.qr import FORMAT_NONE, FORMAT_PMOFN, FORMAT_UR
+    from krux.qr import FORMAT_NONE, FORMAT_PMOFN, FORMAT_UR, FORMAT_BBQR
 
     wallet = Wallet(Key(tdata.TEST_MNEMONIC, False, NETWORKS["test"]))
     cases = [
@@ -212,16 +252,56 @@ def test_init_singlesig(mocker, m5stickv, tdata):
         (tdata.P2WPKH_PSBT_B58, FORMAT_PMOFN),
         (tdata.P2WPKH_PSBT_B64, FORMAT_PMOFN),
         (tdata.P2WPKH_PSBT_UR_PSBT, FORMAT_UR),
+        (tdata.P2WPKH_PSBT_BBQR_PSBT, FORMAT_BBQR),
         (tdata.P2SH_P2WPKH_PSBT, FORMAT_NONE),
         (tdata.P2SH_P2WPKH_PSBT_B43, FORMAT_PMOFN),
         (tdata.P2SH_P2WPKH_PSBT_B58, FORMAT_PMOFN),
         (tdata.P2SH_P2WPKH_PSBT_B64, FORMAT_PMOFN),
         (tdata.P2SH_P2WPKH_PSBT_UR_PSBT, FORMAT_UR),
+        (tdata.P2TR_PSBT, FORMAT_NONE),
+        (tdata.P2TR_PSBT_B43, FORMAT_PMOFN),
+        (tdata.P2TR_PSBT_B58, FORMAT_PMOFN),
+        (tdata.P2TR_PSBT_B64, FORMAT_PMOFN),
+        (tdata.P2TR_PSBT_UR_PSBT, FORMAT_UR),
     ]
 
     for case in cases:
         signer = PSBTSigner(wallet, case[0], case[1])
         assert isinstance(signer, PSBTSigner)
+
+
+def test_init_singlesig_from_sdcard(mocker, m5stickv, tdata):
+    from embit.networks import NETWORKS
+    from krux.psbt import PSBTSigner
+    from krux.key import Key
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_NONE
+
+    wallet = Wallet(Key(tdata.TEST_MNEMONIC, False, NETWORKS["test"]))
+    cases = [
+        (tdata.P2PKH_PSBT, FORMAT_NONE),
+        (tdata.P2WPKH_PSBT, FORMAT_NONE),
+        (tdata.P2SH_P2WPKH_PSBT, FORMAT_NONE),
+        (tdata.P2TR_PSBT, FORMAT_NONE),
+    ]
+
+    for case in cases:
+        mocker.patch("builtins.open", mock_open(MockFile(case[0])))
+        signer = PSBTSigner(wallet, None, case[1], "dummy.psbt")
+        assert isinstance(signer, PSBTSigner)
+
+
+def test_init_empty_file_from_sdcard(mocker, m5stickv, tdata):
+    from embit.networks import NETWORKS
+    from krux.psbt import PSBTSigner
+    from krux.key import Key
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_NONE
+
+    wallet = Wallet(Key(tdata.TEST_MNEMONIC, False, NETWORKS["test"]))
+    mocker.patch("builtins.open", mock_open(MockFile()))
+    with pytest.raises(ValueError):
+        PSBTSigner(wallet, None, FORMAT_NONE, "dummy.psbt")
 
 
 def test_init_multisig(mocker, m5stickv, tdata):
@@ -250,6 +330,26 @@ def test_init_multisig(mocker, m5stickv, tdata):
         assert isinstance(signer, PSBTSigner)
 
 
+def test_init_multisig_from_sdcard(mocker, m5stickv, tdata):
+    from embit.networks import NETWORKS
+    from krux.psbt import PSBTSigner
+    from krux.key import Key
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_NONE, FORMAT_PMOFN, FORMAT_UR
+
+    wallet = Wallet(Key(tdata.TEST_MNEMONIC, True, NETWORKS["test"]))
+    cases = [
+        (tdata.P2WSH_PSBT, FORMAT_NONE),
+        (tdata.P2SH_P2WSH_PSBT, FORMAT_NONE),
+    ]
+
+    for case in cases:
+        mock_file = MockFile(case[0])
+        mocker.patch("builtins.open", return_value=mock_file)
+        signer = PSBTSigner(wallet, None, case[1], "dummy.psbt")
+        assert isinstance(signer, PSBTSigner)
+
+
 def test_init_fails_on_invalid_psbt(mocker, m5stickv, tdata):
     from embit.networks import NETWORKS
     from ur.ur import UR
@@ -269,12 +369,28 @@ def test_init_fails_on_invalid_psbt(mocker, m5stickv, tdata):
             PSBTSigner(wallet, case[0], case[1])
 
 
+def test_init_fails_on_invalid_psbt_from_sdcard(mocker, m5stickv, tdata):
+    from embit.networks import NETWORKS
+    from ur.ur import UR
+    from krux.psbt import PSBTSigner
+    from krux.key import Key
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_NONE, FORMAT_UR
+
+    wallet = Wallet(Key(tdata.TEST_MNEMONIC, False, NETWORKS["test"]))
+
+    mock_file = MockFile("thisisnotavalidpsbt")
+    mocker.patch("builtins.open", return_value=mock_file)
+    with pytest.raises(ValueError):
+        PSBTSigner(wallet, None, FORMAT_NONE, "dummy.psbt")
+
+
 def test_sign_singlesig(mocker, m5stickv, tdata):
     from embit.networks import NETWORKS
     from krux.psbt import PSBTSigner
     from krux.key import Key
     from krux.wallet import Wallet
-    from krux.qr import FORMAT_NONE, FORMAT_PMOFN, FORMAT_UR
+    from krux.qr import FORMAT_NONE, FORMAT_PMOFN, FORMAT_UR, FORMAT_BBQR
 
     wallet = Wallet(Key(tdata.TEST_MNEMONIC, False, NETWORKS["test"]))
     cases = [
@@ -288,6 +404,7 @@ def test_sign_singlesig(mocker, m5stickv, tdata):
         (tdata.P2WPKH_PSBT_B58, FORMAT_PMOFN, tdata.SIGNED_P2WPKH_PSBT_B58),
         (tdata.P2WPKH_PSBT_B64, FORMAT_PMOFN, tdata.SIGNED_P2WPKH_PSBT_B64),
         (tdata.P2WPKH_PSBT_UR_PSBT, FORMAT_UR, tdata.SIGNED_P2WPKH_PSBT_UR_PSBT),
+        (tdata.P2WPKH_PSBT_BBQR_PSBT, FORMAT_BBQR, tdata.SIGNED_P2WPKH_PSBT_BBQR_PSBT),
         (tdata.P2SH_P2WPKH_PSBT, FORMAT_NONE, tdata.SIGNED_P2SH_P2WPKH_PSBT),
         (tdata.P2SH_P2WPKH_PSBT_B43, FORMAT_PMOFN, tdata.SIGNED_P2SH_P2WPKH_PSBT_B43),
         (tdata.P2SH_P2WPKH_PSBT_B58, FORMAT_PMOFN, tdata.SIGNED_P2SH_P2WPKH_PSBT_B58),
@@ -297,6 +414,11 @@ def test_sign_singlesig(mocker, m5stickv, tdata):
             FORMAT_UR,
             tdata.SIGNED_P2SH_P2WPKH_PSBT_UR_PSBT,
         ),
+        (tdata.P2TR_PSBT, FORMAT_NONE, tdata.SIGNED_P2TR_PSBT),
+        (tdata.P2TR_PSBT_B43, FORMAT_PMOFN, tdata.SIGNED_P2TR_PSBT_B43),
+        (tdata.P2TR_PSBT_B58, FORMAT_PMOFN, tdata.SIGNED_P2TR_PSBT_B58),
+        (tdata.P2TR_PSBT_B64, FORMAT_PMOFN, tdata.SIGNED_P2TR_PSBT_B64),
+        (tdata.P2TR_PSBT_UR_PSBT, FORMAT_UR, tdata.SIGNED_P2TR_PSBT_UR_PSBT),
         (tdata.P2WPKH_PSBT, FORMAT_PMOFN, tdata.SIGNED_P2WPKH_PSBT_B64),
         (tdata.P2SH_P2WPKH_PSBT, FORMAT_PMOFN, tdata.SIGNED_P2SH_P2WPKH_PSBT_B64),
     ]
@@ -307,7 +429,52 @@ def test_sign_singlesig(mocker, m5stickv, tdata):
         num += 1
         signer = PSBTSigner(wallet, case[0], case[1])
         signer.sign()
-        assert signer.psbt_qr() == (case[2], case[1])
+        if case[1] == FORMAT_BBQR:
+            psbt_qr = signer.psbt_qr()
+            assert psbt_qr[0].payload == case[2].payload
+            assert psbt_qr[1] == case[1]
+        else:
+            assert signer.psbt_qr() == (case[2], case[1])
+
+
+def test_sign_singlesig_from_sdcard(mocker, m5stickv, tdata):
+    from embit.networks import NETWORKS
+    from krux.psbt import PSBTSigner
+    from krux.key import Key
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_NONE
+
+    wallet = Wallet(Key(tdata.TEST_MNEMONIC, False, NETWORKS["test"]))
+    cases = [
+        (tdata.P2PKH_PSBT, FORMAT_NONE, tdata.SIGNED_P2PKH_PSBT),
+        (tdata.P2PKH_PSBT_B64, FORMAT_NONE, tdata.SIGNED_P2PKH_PSBT_B64),
+        (tdata.P2WPKH_PSBT, FORMAT_NONE, tdata.SIGNED_P2WPKH_PSBT),
+        (tdata.P2WPKH_PSBT_B64, FORMAT_NONE, tdata.SIGNED_P2WPKH_PSBT_B64),
+        (tdata.P2SH_P2WPKH_PSBT, FORMAT_NONE, tdata.SIGNED_P2SH_P2WPKH_PSBT),
+        (tdata.P2SH_P2WPKH_PSBT_B64, FORMAT_NONE, tdata.SIGNED_P2SH_P2WPKH_PSBT_B64),
+        (tdata.P2TR_PSBT, FORMAT_NONE, tdata.SIGNED_P2TR_PSBT),
+        (tdata.P2TR_PSBT_B64, FORMAT_NONE, tdata.SIGNED_P2TR_PSBT_B64),
+    ]
+
+    num = 0
+    for case in cases:
+        print("test_sign_singlesig_from_sdcard case: ", num)
+        mock_file = MockFile(case[0])
+        mocker.patch("builtins.open", mock_open(mock_file))
+        signer = PSBTSigner(wallet, None, case[1], "dummy.psbt")
+        signer.sign()
+        if num % 2 == 1:
+            # If test case num is odd, check if detected as base64
+            assert signer.is_b64_file
+            signed_psbt, _ = signer.psbt_qr()
+            print("signed_psbt", signed_psbt)
+            with open("/sd/" + "dummy-signed.psbt", "w") as f:
+                f.write(signed_psbt)
+        else:
+            with open("/sd/" + "dummy-signed.psbt", "wb") as f:
+                signer.psbt.write_to(f)
+        assert mock_file.write_data == case[2]
+        num += 1
 
 
 def test_sign_multisig(mocker, m5stickv, tdata):
@@ -343,6 +510,29 @@ def test_sign_multisig(mocker, m5stickv, tdata):
         assert signer.psbt_qr() == (case[2], case[1])
 
 
+def test_sign_multisig_from_sdcard(mocker, m5stickv, tdata):
+    from embit.networks import NETWORKS
+    from krux.psbt import PSBTSigner
+    from krux.key import Key
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_NONE, FORMAT_PMOFN, FORMAT_UR
+
+    wallet = Wallet(Key(tdata.TEST_MNEMONIC, True, NETWORKS["test"]))
+    cases = [
+        (tdata.P2WSH_PSBT, FORMAT_NONE, tdata.SIGNED_P2WSH_PSBT),
+        (tdata.P2SH_P2WSH_PSBT, FORMAT_NONE, tdata.SIGNED_P2SH_P2WSH_PSBT),
+    ]
+
+    for case in cases:
+        mock_file = MockFile(case[0])
+        mocker.patch("builtins.open", return_value=mock_file)
+        signer = PSBTSigner(wallet, None, case[1], "dummy.psbt")
+        signer.sign()
+        with open("dummy-signed.psbt", "wb") as f:
+            signer.psbt.write_to(f)
+        assert mock_file.write_data == case[2]
+
+
 def test_sign_fails_with_0_sigs_added(mocker, m5stickv, tdata):
     from embit.networks import NETWORKS
     from krux.psbt import PSBTSigner
@@ -371,14 +561,14 @@ def test_outputs_singlesig(mocker, m5stickv, tdata):
         (
             tdata.P2PKH_PSBT,
             [
-                "Inputs (3): ₿ 0.00 001 856\n\nSpend (1): ₿ 0.00 001 000\n\nFee: ₿ 0.00 000 856 (85.6%)",
+                "Inputs (3): ₿ 0.00 001 856\n\nSpend (1): ₿ 0.00 001 000\n\nFee: ₿ 0.00 000 856 (85.6%) ~1.8 sat/vB",
                 "1. Spend: \n\ntb1q4mx3ahp7laj65gyaqg27w0tsjpwuz6rvaxx3tl\n\n₿ 0.00 001 000",
             ],
         ),
         (
             tdata.P2WPKH_PSBT,
             [
-                "Inputs (1): ₿ 1.00 000 000\n\nSpend (1): ₿ 0.10 000 000\n\nSelf-transfer or Change (1): ₿ 0.89 997 180\n\nFee: ₿ 0.00 002 820 (0.1%)",
+                "Inputs (1): ₿ 1.00 000 000\n\nSpend (1): ₿ 0.10 000 000\n\nSelf-transfer or Change (1): ₿ 0.89 997 180\n\nFee: ₿ 0.00 002 820 (0.1%) ~20.0 sat/vB",
                 "1. Spend: \n\ntb1que40al7rsw88ru9z0vr78vqwme4w3ctqj694kx\n\n₿ 0.10 000 000",
                 "1. Change: \n\ntb1q9u62588spffmq4dzjxsr5l297znf3z6j5p2688\n\n₿ 0.89 997 180",
             ],
@@ -386,9 +576,18 @@ def test_outputs_singlesig(mocker, m5stickv, tdata):
         (
             tdata.P2SH_P2WPKH_PSBT,
             [
-                "Inputs (1): ₿ 1.00 000 000\n\nSpend (1): ₿ 0.10 000 000\n\nSelf-transfer or Change (1): ₿ 0.89 996 700\n\nFee: ₿ 0.00 003 300 (0.1%)",
+                "Inputs (1): ₿ 1.00 000 000\n\nSpend (1): ₿ 0.10 000 000\n\nSelf-transfer or Change (1): ₿ 0.89 996 700\n\nFee: ₿ 0.00 003 300 (0.1%) ~20.0 sat/vB",
                 "1. Spend: \n\ntb1que40al7rsw88ru9z0vr78vqwme4w3ctqj694kx\n\n₿ 0.10 000 000",
                 "1. Change: \n\n2MvdUi5o3f2tnEFh9yGvta6FzptTZtkPJC8\n\n₿ 0.89 996 700",
+            ],
+        ),
+        (
+            tdata.P2TR_PSBT,
+            [
+                "Inputs (1): ₿ 0.00 010 111\n\nSpend (1): ₿ 0.00 001 000\n\nSelf-transfer or Change (2): ₿ 0.00 008 738\n\nFee: ₿ 0.00 000 373 (3.9%) ~2.0 sat/vB",
+                "1. Spend: \n\ntb1q4mx3ahp7laj65gyaqg27w0tsjpwuz6rvaxx3tl\n\n₿ 0.00 001 000",
+                "1. Self-transfer: \n\ntb1pn5kekm0xpnwd6kg8c8qfvv2fr0w5xnhw42927wem7xwk84f7gzvsvctkhp\n\n₿ 0.00 001 000",
+                "1. Change: \n\ntb1pwhn9lzpaukrjwvwe365x7hcgvtcfywwsaxcq7j04jgrfcxzdq23qhzr7wt\n\n₿ 0.00 007 738",
             ],
         ),
     ]
@@ -411,7 +610,7 @@ def test_outputs_multisig(mocker, m5stickv, tdata):
         (
             tdata.P2WSH_PSBT,
             [
-                "Inputs (2): ₿ 0.20 000 000\n\nSpend (1): ₿ 0.18 993 880\n\nSelf-transfer or Change (1): ₿ 0.01 000 000\n\nFee: ₿ 0.00 006 120 (0.1%)",
+                "Inputs (2): ₿ 0.20 000 000\n\nSpend (1): ₿ 0.18 993 880\n\nSelf-transfer or Change (1): ₿ 0.01 000 000\n\nFee: ₿ 0.00 006 120 (0.1%) ~20.1 sat/vB",
                 "1. Spend: \n\ntb1q35pg2rdt3p0v27dmdh9st43q8vzl29cps6kt3yradnqmg55eahfqfgn83n\n\n₿ 0.18 993 880",
                 "1. Self-transfer: \n\ntb1q4xgr8suxvgenukgf4c7r6qaawxxmy9zelh24q8hg5pfxzn2ekn3qfw808t\n\n₿ 0.01 000 000",
             ],
@@ -419,7 +618,7 @@ def test_outputs_multisig(mocker, m5stickv, tdata):
         (
             tdata.P2SH_P2WSH_PSBT,
             [
-                "Inputs (1): ₿ 1.00 000 000\n\nSpend (1): ₿ 0.10 000 000\n\nSelf-transfer or Change (1): ₿ 0.89 995 740\n\nFee: ₿ 0.00 004 260 (0.1%)",
+                "Inputs (1): ₿ 1.00 000 000\n\nSpend (1): ₿ 0.10 000 000\n\nSelf-transfer or Change (1): ₿ 0.89 995 740\n\nFee: ₿ 0.00 004 260 (0.1%) ~20.0 sat/vB",
                 "1. Spend: \n\ntb1que40al7rsw88ru9z0vr78vqwme4w3ctqj694kx\n\n₿ 0.10 000 000",
                 "1. Self-transfer: \n\n2N3vYfcg14Axr4NN33ADUorE2kEGEchFJpC\n\n₿ 0.89 995 740",
             ],
@@ -456,7 +655,7 @@ def test_sign_single_1_input_1_output_no_change(m5stickv):
     MNEMONIC = "action action action action action action action action action action action action"
     PSBT_B64 = "cHNidP8BAFMCAAAAAcfPlS2RvKvXxP/UxRmlAzMZcpLPKTOsBNbFM1JpT5Q7BwAAAAD9////AXAXAAAAAAAAF6kUK7ey9d8Pcw7ufsChrS3L5Ays13SHEgQlAE8BBDWHzwNOAaDGgAAAAA6sE2xHBRocbxB2m7sG3JvBy6PH2P+6FU8Xz26TLNf+Ax8/bmYn6gHZ6KY5opTh2Ajf+3sKBpZ40s59aYtcEnY+EODFlcVUAACAAQAAgAAAAIAAAQD9fQECAAAAAwZh04JGb3rJ3RJGINf/5lNG3RFk9DQyfqaKJK336OcaAQAAAAD9////pZE7Tecrp3E9O5JGSLma4D5TCG5N3uD4deLODBvkt4EAAAAAAP3///+lkTtN5yuncT07kkZIuZrgPlMIbk3e4Ph14s4MG+S3gQEAAAAA/f///wgsAQAAAAAAABYAFARbVWJaVJuYh2b3/HFtU3tQ9eoCLAEAAAAAAAAWABT4gSb5k7/g3ZrEXLyHFlP/C11NFCwBAAAAAAAAFgAU04NlSannloiWwZHvG1uf9aL0NPosAQAAAAAAABYAFNDJ5cj/6H72UNT95nAOLylXp/S5LAEAAAAAAAAWABTj8DqdkD3qZujRRRl4HlpWaADUBywBAAAAAAAAFgAUmPKKcthXsgBlI5AZbJtdEUrFe6gsAQAAAAAAABYAFF1lFcZm2E/gjALNKEfBtzGMsrsqmRgAAAAAAAAWABRk/PxLrogzR/Meytzu0v72RMgGh878JAABAR+ZGAAAAAAAABYAFGT8/EuuiDNH8x7K3O7S/vZEyAaHAQMEAQAAACIGAloQH2tjbm2ayZtJb2Gb0juSNIH9MIoEfX2UW0zE3l/SGODFlcVUAACAAQAAgAAAAIAAAAAAYwAAAAAA"
     OUTPUT = [
-        "Inputs (1): ₿ 0.00 006 297\n\nSpend (1): ₿ 0.00 006 000\n\nFee: ₿ 0.00 000 297 (5.0%)",
+        "Inputs (1): ₿ 0.00 006 297\n\nSpend (1): ₿ 0.00 006 000\n\nFee: ₿ 0.00 000 297 (5.0%) ~2.7 sat/vB",
         "1. Spend: \n\n2MwEP7AfPt8NC65ACmcUhUtDZgGSxYiWUy4\n\n₿ 0.00 006 000",
     ]
 
@@ -464,3 +663,158 @@ def test_sign_single_1_input_1_output_no_change(m5stickv):
     signer = PSBTSigner(wallet, PSBT_B64, FORMAT_PMOFN)
     outputs, _ = signer.outputs()
     assert outputs == OUTPUT
+
+
+def test_path_mismatch(mocker, m5stickv, tdata):
+    from embit.networks import NETWORKS
+    from krux.psbt import PSBTSigner
+    from krux.key import Key, P2PKH, P2WPKH, P2SH_P2WPKH, P2TR, P2WSH
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_NONE
+
+    cases = [
+        (
+            # Legacy wallet vs Legacy PSBT
+            P2WPKH,
+            tdata.P2WPKH_PSBT,
+            "",
+        ),
+        (
+            # Legacy wallet vs Taproot PSBT
+            P2WPKH,
+            tdata.P2TR_PSBT,
+            "m/86'/1'/0'",
+        ),
+        (
+            # Nested Segwit wallet vs Legacy PSBT
+            P2SH_P2WPKH,
+            tdata.P2PKH_PSBT,
+            "m/44'/1'/0'",
+        ),
+        (
+            # Nested Segwit wallet vs Nested Segwit PSBT
+            P2SH_P2WPKH,
+            tdata.P2SH_P2WPKH_PSBT,
+            "",
+        ),
+        (
+            # Native Segwit wallet vs Taproot PSBT
+            P2WPKH,
+            tdata.P2TR_PSBT,
+            "m/86'/1'/0'",
+        ),
+        (
+            # Native Segwit wallet vs Native Segwit PSBT
+            P2WPKH,
+            tdata.P2WPKH_PSBT,
+            "",
+        ),
+        (
+            # Taproot wallet vs Native Segwit PSBT
+            P2TR,
+            tdata.P2WPKH_PSBT,
+            "m/84'/1'/0'",
+        ),
+        (
+            # Taproot wallet vs Taproot PSBT
+            P2TR,
+            tdata.P2TR_PSBT,
+            "",
+        ),
+        (
+            # Native Segwit mainnet wallet vs Native Segwit testnet PSBT
+            P2WPKH,
+            tdata.P2WPKH_PSBT,
+            "m/84'/1'/0'",
+            NETWORKS["main"],
+        ),
+    ]
+
+    for case in cases:
+        if len(case) > 3:
+            wallet = Wallet(
+                Key(tdata.TEST_MNEMONIC, False, case[3], script_type=case[0])
+            )
+        else:
+            wallet = Wallet(
+                Key(tdata.TEST_MNEMONIC, False, NETWORKS["test"], script_type=case[0])
+            )
+        signer = PSBTSigner(wallet, case[1], FORMAT_NONE)
+        path_mismatch = signer.path_mismatch()
+        assert path_mismatch == case[2]
+
+
+def test_sign_sats_vB(m5stickv):
+    from embit.networks import NETWORKS
+    from krux.psbt import PSBTSigner
+    from krux.key import Key
+    from krux.wallet import Wallet
+    from krux.qr import FORMAT_PMOFN
+
+    MNEMONIC = "action action action action action action action action action action action action"
+    wallet = Wallet(Key(MNEMONIC, False, NETWORKS["test"]))
+
+    PSBT_satvB_1_31 = "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"
+    signer = PSBTSigner(wallet, PSBT_satvB_1_31, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (5): ₿ 0.00 001 500\n\nSpend (1): ₿ 0.00 001 000\n\nFee: ₿ 0.00 000 500 (50.0%) ~1.3 sat/vB"
+    )
+
+    PSBT_satvB_28_04 = "cHNidP8BAH4CAAAAAcfPlS2RvKvXxP/UxRmlAzMZcpLPKTOsBNbFM1JpT5Q7BwAAAAD9////AugDAAAAAAAAIgAguKIqvP6jJ6Lj5PVWAoa1nazfyQ8DzfgI34hQnNxYStPoAwAAAAAAABepFGJYgmsnwywOzlosjYc84fGiiGPTh7r5KgBPAQQ1h88DTgGgxoAAAAAOrBNsRwUaHG8Qdpu7Btybwcujx9j/uhVPF89ukyzX/gMfP25mJ+oB2eimOaKU4dgI3/t7CgaWeNLOfWmLXBJ2PhDgxZXFVAAAgAEAAIAAAACAAAEA/X0BAgAAAAMGYdOCRm96yd0SRiDX/+ZTRt0RZPQ0Mn6miiSt9+jnGgEAAAAA/f///6WRO03nK6dxPTuSRki5muA+UwhuTd7g+HXizgwb5LeBAAAAAAD9////pZE7Tecrp3E9O5JGSLma4D5TCG5N3uD4deLODBvkt4EBAAAAAP3///8ILAEAAAAAAAAWABQEW1ViWlSbmIdm9/xxbVN7UPXqAiwBAAAAAAAAFgAU+IEm+ZO/4N2axFy8hxZT/wtdTRQsAQAAAAAAABYAFNODZUmp55aIlsGR7xtbn/Wi9DT6LAEAAAAAAAAWABTQyeXI/+h+9lDU/eZwDi8pV6f0uSwBAAAAAAAAFgAU4/A6nZA96mbo0UUZeB5aVmgA1AcsAQAAAAAAABYAFJjyinLYV7IAZSOQGWybXRFKxXuoLAEAAAAAAAAWABRdZRXGZthP4IwCzShHwbcxjLK7KpkYAAAAAAAAFgAUZPz8S66IM0fzHsrc7tL+9kTIBofO/CQAAQEfmRgAAAAAAAAWABRk/PxLrogzR/Meytzu0v72RMgGhwEDBAEAAAAiBgJaEB9rY25tmsmbSW9hm9I7kjSB/TCKBH19lFtMxN5f0hjgxZXFVAAAgAEAAIAAAACAAAAAAGMAAAAAAAA="
+    signer = PSBTSigner(wallet, PSBT_satvB_28_04, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (1): ₿ 0.00 006 297\n\nSpend (2): ₿ 0.00 002 000\n\nFee: ₿ 0.00 004 297 (214.9%) ~27.9 sat/vB"
+    )
+
+    PSBT_satvB_12_03 = "cHNidP8BAP0WAQIAAAABx8+VLZG8q9fE/9TFGaUDMxlyks8pM6wE1sUzUmlPlDsHAAAAAP3///8GTAEAAAAAAAAiACC4oiq8/qMnouPk9VYChrWdrN/JDwPN+AjfiFCc3FhK0xwCAAAAAAAAF6kUYliCayfDLA7OWiyNhzzh8aKIY9OHTAEAAAAAAAAiACDwabzM44F/2f9evGkQqXxhFwjzErVHgJfc2IE2I91E/U0BAAAAAAAAIlEgJeBfcLU573hJOaYb6XQGR/eOKVSvBR9TW3+FoxRQEWIkAgAAAAAAABl2qRRrgQv3nFAPaNKPYAXmsjT7Ru6DJoisHAIAAAAAAAAXqRSDAQVKg8ZQzf3pc5CIXtSjjvybt4e/+SoATwEENYfPA04BoMaAAAAADqwTbEcFGhxvEHabuwbcm8HLo8fY/7oVTxfPbpMs1/4DHz9uZifqAdnopjmilOHYCN/7ewoGlnjSzn1pi1wSdj4Q4MWVxVQAAIABAACAAAAAgAABAP19AQIAAAADBmHTgkZvesndEkYg1//mU0bdEWT0NDJ+pookrffo5xoBAAAAAP3///+lkTtN5yuncT07kkZIuZrgPlMIbk3e4Ph14s4MG+S3gQAAAAAA/f///6WRO03nK6dxPTuSRki5muA+UwhuTd7g+HXizgwb5LeBAQAAAAD9////CCwBAAAAAAAAFgAUBFtVYlpUm5iHZvf8cW1Te1D16gIsAQAAAAAAABYAFPiBJvmTv+DdmsRcvIcWU/8LXU0ULAEAAAAAAAAWABTTg2VJqeeWiJbBke8bW5/1ovQ0+iwBAAAAAAAAFgAU0MnlyP/ofvZQ1P3mcA4vKVen9LksAQAAAAAAABYAFOPwOp2QPepm6NFFGXgeWlZoANQHLAEAAAAAAAAWABSY8opy2FeyAGUjkBlsm10RSsV7qCwBAAAAAAAAFgAUXWUVxmbYT+CMAs0oR8G3MYyyuyqZGAAAAAAAABYAFGT8/EuuiDNH8x7K3O7S/vZEyAaHzvwkAAEBH5kYAAAAAAAAFgAUZPz8S66IM0fzHsrc7tL+9kTIBocBAwQBAAAAIgYCWhAfa2NubZrJm0lvYZvSO5I0gf0wigR9fZRbTMTeX9IY4MWVxVQAAIABAACAAAAAgAAAAABjAAAAAAAAAAAAAA=="
+    signer = PSBTSigner(wallet, PSBT_satvB_12_03, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (1): ₿ 0.00 006 297\n\nSpend (6): ₿ 0.00 002 625\n\nFee: ₿ 0.00 003 672 (139.9%) ~12.0 sat/vB"
+    )
+
+    PSBT_satvB_8_75 = "cHNidP8BAP0WAQIAAAABx8+VLZG8q9fE/9TFGaUDMxlyks8pM6wE1sUzUmlPlDsHAAAAAP3///8GJAIAAAAAAAAZdqkUa4EL95xQD2jSj2AF5rI0+0bugyaIrDUFAAAAAAAAIlEgJeBfcLU573hJOaYb6XQGR/eOKVSvBR9TW3+FoxRQEWIcAgAAAAAAABepFIMBBUqDxlDN/elzkIhe1KOO/Ju3hxwCAAAAAAAAF6kUYliCayfDLA7OWiyNhzzh8aKIY9OHTAEAAAAAAAAiACC4oiq8/qMnouPk9VYChrWdrN/JDwPN+AjfiFCc3FhK00wBAAAAAAAAIgAg8Gm8zOOBf9n/XrxpEKl8YRcI8xK1R4CX3NiBNiPdRP2/+SoATwEENYfPA04BoMaAAAAADqwTbEcFGhxvEHabuwbcm8HLo8fY/7oVTxfPbpMs1/4DHz9uZifqAdnopjmilOHYCN/7ewoGlnjSzn1pi1wSdj4Q4MWVxVQAAIABAACAAAAAgAABAP19AQIAAAADBmHTgkZvesndEkYg1//mU0bdEWT0NDJ+pookrffo5xoBAAAAAP3///+lkTtN5yuncT07kkZIuZrgPlMIbk3e4Ph14s4MG+S3gQAAAAAA/f///6WRO03nK6dxPTuSRki5muA+UwhuTd7g+HXizgwb5LeBAQAAAAD9////CCwBAAAAAAAAFgAUBFtVYlpUm5iHZvf8cW1Te1D16gIsAQAAAAAAABYAFPiBJvmTv+DdmsRcvIcWU/8LXU0ULAEAAAAAAAAWABTTg2VJqeeWiJbBke8bW5/1ovQ0+iwBAAAAAAAAFgAU0MnlyP/ofvZQ1P3mcA4vKVen9LksAQAAAAAAABYAFOPwOp2QPepm6NFFGXgeWlZoANQHLAEAAAAAAAAWABSY8opy2FeyAGUjkBlsm10RSsV7qCwBAAAAAAAAFgAUXWUVxmbYT+CMAs0oR8G3MYyyuyqZGAAAAAAAABYAFGT8/EuuiDNH8x7K3O7S/vZEyAaHzvwkAAEBH5kYAAAAAAAAFgAUZPz8S66IM0fzHsrc7tL+9kTIBocBAwQBAAAAIgYCWhAfa2NubZrJm0lvYZvSO5I0gf0wigR9fZRbTMTeX9IY4MWVxVQAAIABAACAAAAAgAAAAABjAAAAAAAAAAAAAA=="
+    signer = PSBTSigner(wallet, PSBT_satvB_8_75, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (1): ₿ 0.00 006 297\n\nSpend (6): ₿ 0.00 003 625\n\nFee: ₿ 0.00 002 672 (73.8%) ~8.7 sat/vB"
+    )
+
+    PSBT_satvB_5_48 = "cHNidP8BAP0WAQIAAAABx8+VLZG8q9fE/9TFGaUDMxlyks8pM6wE1sUzUmlPlDsHAAAAAP3///8GJAIAAAAAAAAZdqkUa4EL95xQD2jSj2AF5rI0+0bugyaIrBwCAAAAAAAAF6kUYliCayfDLA7OWiyNhzzh8aKIY9OHHAIAAAAAAAAXqRSDAQVKg8ZQzf3pc5CIXtSjjvybt4dMAQAAAAAAACIAIPBpvMzjgX/Z/168aRCpfGEXCPMStUeAl9zYgTYj3UT9TAEAAAAAAAAiACC4oiq8/qMnouPk9VYChrWdrN/JDwPN+AjfiFCc3FhK0x0JAAAAAAAAIlEgJeBfcLU573hJOaYb6XQGR/eOKVSvBR9TW3+FoxRQEWK/+SoATwEENYfPA04BoMaAAAAADqwTbEcFGhxvEHabuwbcm8HLo8fY/7oVTxfPbpMs1/4DHz9uZifqAdnopjmilOHYCN/7ewoGlnjSzn1pi1wSdj4Q4MWVxVQAAIABAACAAAAAgAABAP19AQIAAAADBmHTgkZvesndEkYg1//mU0bdEWT0NDJ+pookrffo5xoBAAAAAP3///+lkTtN5yuncT07kkZIuZrgPlMIbk3e4Ph14s4MG+S3gQAAAAAA/f///6WRO03nK6dxPTuSRki5muA+UwhuTd7g+HXizgwb5LeBAQAAAAD9////CCwBAAAAAAAAFgAUBFtVYlpUm5iHZvf8cW1Te1D16gIsAQAAAAAAABYAFPiBJvmTv+DdmsRcvIcWU/8LXU0ULAEAAAAAAAAWABTTg2VJqeeWiJbBke8bW5/1ovQ0+iwBAAAAAAAAFgAU0MnlyP/ofvZQ1P3mcA4vKVen9LksAQAAAAAAABYAFOPwOp2QPepm6NFFGXgeWlZoANQHLAEAAAAAAAAWABSY8opy2FeyAGUjkBlsm10RSsV7qCwBAAAAAAAAFgAUXWUVxmbYT+CMAs0oR8G3MYyyuyqZGAAAAAAAABYAFGT8/EuuiDNH8x7K3O7S/vZEyAaHzvwkAAEBH5kYAAAAAAAAFgAUZPz8S66IM0fzHsrc7tL+9kTIBocBAwQBAAAAIgYCWhAfa2NubZrJm0lvYZvSO5I0gf0wigR9fZRbTMTeX9IY4MWVxVQAAIABAACAAAAAgAAAAABjAAAAAAAAAAAAAA=="
+    signer = PSBTSigner(wallet, PSBT_satvB_5_48, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (1): ₿ 0.00 006 297\n\nSpend (6): ₿ 0.00 004 625\n\nFee: ₿ 0.00 001 672 (36.2%) ~5.5 sat/vB"
+    )
+
+    PSBT_satvB_2_2 = "cHNidP8BAP0WAQIAAAABx8+VLZG8q9fE/9TFGaUDMxlyks8pM6wE1sUzUmlPlDsHAAAAAP3///8GJAIAAAAAAAAZdqkUa4EL95xQD2jSj2AF5rI0+0bugyaIrAUNAAAAAAAAIlEgJeBfcLU573hJOaYb6XQGR/eOKVSvBR9TW3+FoxRQEWJMAQAAAAAAACIAILiiKrz+oyei4+T1VgKGtZ2s38kPA834CN+IUJzcWErTHAIAAAAAAAAXqRSDAQVKg8ZQzf3pc5CIXtSjjvybt4dMAQAAAAAAACIAIPBpvMzjgX/Z/168aRCpfGEXCPMStUeAl9zYgTYj3UT9HAIAAAAAAAAXqRRiWIJrJ8MsDs5aLI2HPOHxoohj04e/+SoATwEENYfPA04BoMaAAAAADqwTbEcFGhxvEHabuwbcm8HLo8fY/7oVTxfPbpMs1/4DHz9uZifqAdnopjmilOHYCN/7ewoGlnjSzn1pi1wSdj4Q4MWVxVQAAIABAACAAAAAgAABAP19AQIAAAADBmHTgkZvesndEkYg1//mU0bdEWT0NDJ+pookrffo5xoBAAAAAP3///+lkTtN5yuncT07kkZIuZrgPlMIbk3e4Ph14s4MG+S3gQAAAAAA/f///6WRO03nK6dxPTuSRki5muA+UwhuTd7g+HXizgwb5LeBAQAAAAD9////CCwBAAAAAAAAFgAUBFtVYlpUm5iHZvf8cW1Te1D16gIsAQAAAAAAABYAFPiBJvmTv+DdmsRcvIcWU/8LXU0ULAEAAAAAAAAWABTTg2VJqeeWiJbBke8bW5/1ovQ0+iwBAAAAAAAAFgAU0MnlyP/ofvZQ1P3mcA4vKVen9LksAQAAAAAAABYAFOPwOp2QPepm6NFFGXgeWlZoANQHLAEAAAAAAAAWABSY8opy2FeyAGUjkBlsm10RSsV7qCwBAAAAAAAAFgAUXWUVxmbYT+CMAs0oR8G3MYyyuyqZGAAAAAAAABYAFGT8/EuuiDNH8x7K3O7S/vZEyAaHzvwkAAEBH5kYAAAAAAAAFgAUZPz8S66IM0fzHsrc7tL+9kTIBocBAwQBAAAAIgYCWhAfa2NubZrJm0lvYZvSO5I0gf0wigR9fZRbTMTeX9IY4MWVxVQAAIABAACAAAAAgAAAAABjAAAAAAAAAAAAAA=="
+    signer = PSBTSigner(wallet, PSBT_satvB_2_2, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (1): ₿ 0.00 006 297\n\nSpend (6): ₿ 0.00 005 625\n\nFee: ₿ 0.00 000 672 (12.0%) ~2.2 sat/vB"
+    )
+
+    PSBT_satvB_1_8 = "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"
+    signer = PSBTSigner(wallet, PSBT_satvB_1_8, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (7): ₿ 0.00 002 100\n\nSpend (3): ₿ 0.00 000 997\n\nFee: ₿ 0.00 001 103 (110.7%) ~1.8 sat/vB"
+    )
+
+    wallet = Wallet(Key(MNEMONIC, True, NETWORKS["test"]))
+    PSBT_satvB_164_83 = "cHNidP8BAP2rAQIAAAACxvxPDwl8OViT/AUxEgMo58M4h+6v+YQG6vWmKSP3qDsAAAAAAP3////hoVUsAQo/jjpZMWX4x2AksKK2VqWeAQrNMFDpJRhutQEAAAAA/f///wkmAgAAAAAAABepFPTiUaABy92SsOc6XwK0OmNoH1Lbh1gCAAAAAAAAIgAg7SlT+BVDPK6CszkbCElnUdk4PZXlLT7f3ewQK6ybKPVXBAAAAAAAABYAFOPwOp2QPepm6NFFGXgeWlZoANQHJwIAAAAAAAAZdqkUyltliXcHzzJx3FREv3ag6trFlYyIrAcJAAAAAAAAF6kUcqgjtuzhztFzNeRsoZyFKw2kEiCHJgIAAAAAAAAZdqkUiyEsghpJgfU7U7xyG8IhgkhfnLKIrI0MAAAAAAAAIlEgPKIogOE9kof2h9aNfUgVZrvgkD3bcv6ZgfUQQVjoaqzRBAAAAAAAACJRICXgX3C1Oe94STmmG+l0Bkf3jilUrwUfU1t/haMUUBFiMEcAAAAAAAAiACAtAwzag5dZxk2yX3unHhW2yDLgaRrQmXQjLwdS9SWtBL/5KgBPAQQ1h88Egfnuy4AAAAJawo0XlCalJkWVhdDk9Fodo/24Bk6o+YuRs/0CLKYO3AJ3mZ9qQXta3GcftjOQl2kCc8pn5ZH7EeYZ7lhbwLrPURTgxZXFMAAAgAEAAIAAAACAAgAAgE8BBDWHzwQ9FADogAAAAkYXR7HWVGIfNz4fqASjEfYHyTWBUw2PTIJyJVtefKIOApKe3r5nf3uVdD6BfzIM60MDCEBi0QB4iGRj5Ed3oTQ+FBkmx2MwAACAAQAAgAAAAIACAACATwEENYfPBGYTDceAAAACDO4xS6EEHIfyfcteiZSStchtI+zrJ1t2H5Q1mfIlJTsCI8ZPzBlGkmgIjIeIjHfX0ELxP0AT+Vg7Lhjv2lCxSHYUxfW+QDAAAIABAACAAAAAgAIAAIBPAQQ1h88EMYfv9YAAAAL/JKajJAfibVu85oZVYypXk0OV9/FtkjwS1jd6oZhjRwKF9l0WUsTwhpVeJS7jBd4WjUAtTjpz86d+jhUF6QmQPxSzALXuMAAAgAEAAIAAAACAAgAAgE8BBDWHzwRB1T2EgAAAAlQR4OXm+QDdeRxU7hB9Z1PWB4Qnw+18RTysLIsXRevCAsIE8N2Zw7y51fQ4iSAmhnFKBGqGKY5kDRS3rRtgVevPFPEoG+QwAACAAQAAgAAAAIACAACATwEENYfPBLVB3zGAAAACvaHPYepmiFMhK+Rv/e5iS6ZQwDFL451KZyNFEBY/HIEDe7pBxQTkTF+x4jxCcsbWXFtIvmCDzu32qDkNeVfpDFcUL1QD7DAAAIABAACAAAAAgAIAAIBPAQQ1h88EAEqjHIAAAAJUMQhLVe2B1QcyR1Lb7mfJCarIUywo4vzgfFvkZcR9RgJsqYjkSKUGpOJu2KY7UQLGNhemDpqmLky6xU8VlGkrHhTM39D0MAAAgAEAAIAAAACAAgAAgE8BBDWHzwShqicUgAAAAt6rtcow7E6u80Aj2mOIIZZXKPafV8a2X+Fg129sedNEA7BP3O9vCVWJe7nSEIwERlqVOQT74n9502Pod8jvLVB3FPpDCbswAACAAQAAgAAAAIACAACATwEENYfPBK4FICqAAAAC20g/x3iQJ35D5mq+7XWSGOmZwIITFdmRgYtfsvQLayUCPEWPgZTIbvqz0a8JQqI3xYD5hSjn05Adr3zDq0Z73r0UBig12TAAAIABAACAAAAAgAIAAIAAAQB9AgAAAAEugookeJZ2bsoQc1aT2mTarFkbS6KHZ0xS/PR5G00IkAAAAAAA/f///wLA1AEAAAAAACIAILgyrfO56tKA221zLVz01fcaSK7pvjt3uEAGzhBnnkUoEzhsAAAAAAAWABSOuyYZ2K1YUzqx4q6UShww3x6L9I7DJgABASvA1AEAAAAAACIAILgyrfO56tKA221zLVz01fcaSK7pvjt3uEAGzhBnnkUoAQMEAQAAAAEF/TUBUSECUT16jfx6OJwBCtunbTiymINeJ0mJFQ1OHNDunxAnSF4hAs3S1IXWxm8LAyt6qCcFpKi1QkLnCNbjvWQfCGU5o+w8IQL6JM3AbTCJqn//smKIK+HywN1hGtNNIsJt2D2EKwNrKCEC/7CpWhK09def6O+jpeDdqsgdmWwD87sY+LntPo5Vzi0hAxi7c5FKr3SXgIv7nq2u8NdftZu6CvFCvVQmecVAgRrhIQMagegznVzzv94BvpMDTLcd2i8arXvtDda2eqp5nZia/SEDOCPR/ei1x+po6gsWOhb7u/HPplV598QZG2DlCOVatoUhA5eIN5KuprIrKg8SDMjaAFAzuiSWErJDc9HbC40q0GfGIQObgorgQxCVJFOoYHIoaeUdYKzvQsXmxGF7ZEdKgK+2jlmuIgYDOCPR/ei1x+po6gsWOhb7u/HPplV598QZG2DlCOVatoUc4MWVxTAAAIABAACAAAAAgAIAAIAAAAAAAAAAACIGAlE9eo38ejicAQrbp204spiDXidJiRUNThzQ7p8QJ0heHBkmx2MwAACAAQAAgAAAAIACAACAAAAAAAAAAAAiBgL6JM3AbTCJqn//smKIK+HywN1hGtNNIsJt2D2EKwNrKBzF9b5AMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYCzdLUhdbGbwsDK3qoJwWkqLVCQucI1uO9ZB8IZTmj7DwcswC17jAAAIABAACAAAAAgAIAAIAAAAAAAAAAACIGAxi7c5FKr3SXgIv7nq2u8NdftZu6CvFCvVQmecVAgRrhHPEoG+QwAACAAQAAgAAAAIACAACAAAAAAAAAAAAiBgL/sKlaErT115/o76Ol4N2qyB2ZbAPzuxj4ue0+jlXOLRwvVAPsMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDm4KK4EMQlSRTqGByKGnlHWCs70LF5sRhe2RHSoCvto4czN/Q9DAAAIABAACAAAAAgAIAAIAAAAAAAAAAACIGAxqB6DOdXPO/3gG+kwNMtx3aLxqte+0N1rZ6qnmdmJr9HPpDCbswAACAAQAAgAAAAIACAACAAAAAAAAAAAAiBgOXiDeSrqayKyoPEgzI2gBQM7oklhKyQ3PR2wuNKtBnxhwGKDXZMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAAAEAiQIAAAAB2r0h30illqWy9Otl7Q1XTlb9uLjrJhRhyP/h4EeuGPoAAAAAAP3///8CIrw5sgAAAAAiUSCR+4yczklxYxY7lyyOIWvzyiH7W4BdfpbD5UullxdmnH4pAAAAAAAAIgAgye2OxwLNIQqzm/EtFQLlNe0+cd3GhpDr7y+RKyLm5Lmk4yoAAQErfikAAAAAAAAiACDJ7Y7HAs0hCrOb8S0VAuU17T5x3caGkOvvL5ErIubkuQEDBAEAAAABBf01AVEhAiRLSJSvD7TWcv5EfGdo7NQtXs867sYx1+LvtN3JGwSgIQI/nN8aKAS8fLmkJAHddYEpJG8aI9pJChN+dxdrAm5LsCECU/y+ZtfRmymknEYfcBght6qHH5xwwawfNBgrzrqZWkUhAr9BWrWprasjR2fdngtFfmWq2c4AcMpz7agDflVh4WePIQL8sn3dhWJIIgUY8zEbBoG2qbpWlU4Zf/57/oJpyArRDCEDCjjKfpuT+7tXQDWs4LJJEN0AARKbRbxlp7IbSBhOJ9UhA4QIib/2AxF/nhevOdENoS3ju2CZOLM8fUvc+7gcaoNXIQOG3pMoAhywAeCMB3MjPEKGWjdJAzuKRwnqaqM6A50k+yEDlEZj185yGIl/WpuOHrR2q8RcpahQaTPWt1GNY/5jXiVZriIGAiRLSJSvD7TWcv5EfGdo7NQtXs867sYx1+LvtN3JGwSgHODFlcUwAACAAQAAgAAAAIACAACAAAAAAAMAAAAiBgJT/L5m19GbKaScRh9wGCG3qocfnHDBrB80GCvOuplaRRwZJsdjMAAAgAEAAIAAAACAAgAAgAAAAAADAAAAIgYDlEZj185yGIl/WpuOHrR2q8RcpahQaTPWt1GNY/5jXiUcxfW+QDAAAIABAACAAAAAgAIAAIAAAAAAAwAAACIGA4bekygCHLAB4IwHcyM8QoZaN0kDO4pHCepqozoDnST7HLMAte4wAACAAQAAgAAAAIACAACAAAAAAAMAAAAiBgK/QVq1qa2rI0dn3Z4LRX5lqtnOAHDKc+2oA35VYeFnjxzxKBvkMAAAgAEAAIAAAACAAgAAgAAAAAADAAAAIgYDhAiJv/YDEX+eF6850Q2hLeO7YJk4szx9S9z7uBxqg1ccL1QD7DAAAIABAACAAAAAgAIAAIAAAAAAAwAAACIGAj+c3xooBLx8uaQkAd11gSkkbxoj2kkKE353F2sCbkuwHMzf0PQwAACAAQAAgAAAAIACAACAAAAAAAMAAAAiBgMKOMp+m5P7u1dANazgskkQ3QABEptFvGWnshtIGE4n1Rz6Qwm7MAAAgAEAAIAAAACAAgAAgAAAAAADAAAAIgYC/LJ93YViSCIFGPMxGwaBtqm6VpVOGX/+e/6CacgK0QwcBig12TAAAIABAACAAAAAgAIAAIAAAAAAAwAAAAAAAQH9NQFRIQJv5fQ/lbwUT9wtw6/Eh2Oq16gicOpFq3BG6xcke9ubQiECe00vxV9fm/T+xbMIdQYOGuprslcW4e4E6+NQZS5pz7ghApX2A/BDiIbREOLnj3ijE7Kt632WymP5pMdKObvhnOVEIQLHSZr+ewkz9a4EmXVcdxAKVZnlNz4WW9xV+v0JTBXTaCEC/YMngcz+JMjycuGmtw0w0XqEK/Bn3/TgzQihBTitFWchAw5SiHyBWCloUClD8xJpTS3A9sepdstCOqdHeLfcb0IpIQMk7O/3Y0b6XibLKjDaJB04AJgfXDf3Lk9xp9wrt1eq9SEDWooQ0LGxQrxIWOW5lfW58GcMlVM7dh3vUqq1HB9cyWghA9kjjDpGlvtgO1S18k+gfCGfj+m85Eqy6JNrnwpaaQdtWa4iAgPZI4w6Rpb7YDtUtfJPoHwhn4/pvORKsuiTa58KWmkHbRzgxZXFMAAAgAEAAIAAAACAAgAAgAEAAAACAAAAIgICx0ma/nsJM/WuBJl1XHcQClWZ5Tc+FlvcVfr9CUwV02gcGSbHYzAAAIABAACAAAAAgAIAAIABAAAAAgAAACICAw5SiHyBWCloUClD8xJpTS3A9sepdstCOqdHeLfcb0IpHMX1vkAwAACAAQAAgAAAAIACAACAAQAAAAIAAAAiAgJ7TS/FX1+b9P7Fswh1Bg4a6muyVxbh7gTr41BlLmnPuByzALXuMAAAgAEAAIAAAACAAgAAgAEAAAACAAAAIgICb+X0P5W8FE/cLcOvxIdjqteoInDqRatwRusXJHvbm0Ic8Sgb5DAAAIABAACAAAAAgAIAAIABAAAAAgAAACICAyTs7/djRvpeJssqMNokHTgAmB9cN/cuT3Gn3Cu3V6r1HC9UA+wwAACAAQAAgAAAAIACAACAAQAAAAIAAAAiAgKV9gPwQ4iG0RDi5494oxOyret9lspj+aTHSjm74ZzlRBzM39D0MAAAgAEAAIAAAACAAgAAgAEAAAACAAAAIgIDWooQ0LGxQrxIWOW5lfW58GcMlVM7dh3vUqq1HB9cyWgc+kMJuzAAAIABAACAAAAAgAIAAIABAAAAAgAAACICAv2DJ4HM/iTI8nLhprcNMNF6hCvwZ9/04M0IoQU4rRVnHAYoNdkwAACAAQAAgAAAAIACAACAAQAAAAIAAAAAAAAAAAAAAQH9NQFRIQIVh1X3Xi0VmCSxsoxv8JqZrFaam6TxrGY9vuTnJ3mZDiECVgjUD97iD15YimuJOBa14mzNkqBCLxB4Wi3d3xLZOtchAnjet8DQhW4IgWooKGLhn5mNc48AI4lfcBbsaXcKCdcOIQK7b2u7eyw9XqBiH8NjIaPZvCz2ipRmkqgoiKfx66I1OiEC6szHg0gpJJk2olQnez8UIYHxoOs2hnBUHgzmbYMfikYhAwQ6rLGYVkedZQpFq82ARKhnMx98IgWdLOkD5CxRhB5eIQMS6yFOOszN1bymFkmfn5npNY1cVD/ARFO5GhYeNHdVsiEDVs0UK3uipbTk3CnY7WkbzyLLvXcEOU93FLEN0yQLnAUhA48yO/ywO9oBe+YXAY63aZUxJj+27skzrdSwUW+Cs0pDWa4iAgNWzRQre6KltOTcKdjtaRvPIsu9dwQ5T3cUsQ3TJAucBRzgxZXFMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgIC6szHg0gpJJk2olQnez8UIYHxoOs2hnBUHgzmbYMfikYcGSbHYzAAAIABAACAAAAAgAIAAIABAAAAAAAAACICAlYI1A/e4g9eWIpriTgWteJszZKgQi8QeFot3d8S2TrXHMX1vkAwAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgOPMjv8sDvaAXvmFwGOt2mVMSY/tu7JM63UsFFvgrNKQxyzALXuMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgIDEushTjrMzdW8phZJn5+Z6TWNXFQ/wERTuRoWHjR3VbIc8Sgb5DAAAIABAACAAAAAgAIAAIABAAAAAAAAACICArtva7t7LD1eoGIfw2Mho9m8LPaKlGaSqCiIp/HrojU6HC9UA+wwAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgMEOqyxmFZHnWUKRavNgESoZzMffCIFnSzpA+QsUYQeXhzM39D0MAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgICeN63wNCFbgiBaigoYuGfmY1zjwAjiV9wFuxpdwoJ1w4c+kMJuzAAAIABAACAAAAAgAIAAIABAAAAAAAAACICAhWHVfdeLRWYJLGyjG/wmpmsVpqbpPGsZj2+5OcneZkOHAYoNdkwAACAAQAAgAAAAIACAACAAQAAAAAAAAAA"
+    signer = PSBTSigner(wallet, PSBT_satvB_164_83, FORMAT_PMOFN)
+    outputs, _ = signer.outputs()
+    assert (
+        outputs[0]
+        == "Inputs (2): ₿ 0.00 130 622\n\nSpend (7): ₿ 0.00 009 519\n\nSelf-transfer or Change (2): ₿ 0.00 018 824\n\nFee: ₿ 0.00 102 279 (360.9%) ~165.2 sat/vB"
+    )

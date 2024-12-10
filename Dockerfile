@@ -77,10 +77,10 @@ RUN pip3 install pyserial==3.4
 
 ############
 # build-software
-# copy vendor, firmware and Kurx (src) files
+# copy vendor, firmware and Krux (src) files
 # install embit dependency
 ############
-FROM build-base as build-software
+FROM build-base AS build-software
 ARG DEVICE="maixpy_m5stickv"
 ENV DEVICE_BUILTIN="firmware/MaixPy/projects/${DEVICE}/builtin_py"
 RUN mkdir /src
@@ -105,6 +105,7 @@ RUN rm -rf vendor/embit/src/embit/util/prebuilt && \
     rm -f vendor/embit/src/embit/wordlists/slip39.py && \
     rm -f vendor/embit/src/embit/util/ctypes_secp256k1.py && \
     rm -f vendor/embit/src/embit/util/py_secp256k1.py && \
+    rm -f vendor/embit/src/embit/util/py_ripemd160.py && \
     find vendor/embit -type d -name '__pycache__' -exec rm -rv {} + -depth
 
 # copy firmware to WORKDIR (src)
