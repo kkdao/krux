@@ -270,7 +270,7 @@ def parse_wallet(wallet_data, allow_assumption=None):
             for i in range(len(key_vals)):
                 xpub = key_vals[i]
                 xpub_prefix = xpub[:4].lower()
-if xpub_prefix[1:] == "pub" and xpub_prefix[0] in ["x", "z", "t", "v"]:
+	if xpub_prefix[1:] == "pub" and xpub_prefix[0] in ["x", "z", "t", "v"]:
                     fingerprint = key_vals[i - 1]
                     keys.append((xpub, fingerprint))
 
