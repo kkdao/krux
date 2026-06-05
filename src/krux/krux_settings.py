@@ -71,14 +71,10 @@ CNC_HEAD_LASER = "laser"
 
 def t(slug):
     """Translates a slug according to the current locale"""
-    if not locale_control.translation:
+    if not locale_control.translation_map:
         return slug
     slug_id = binascii.crc32(slug.encode("utf-8"))
-    try:
-        translation_index = locale_control.reference.index(slug_id)
-    except:
-        return slug
-    return locale_control.translation[translation_index]
+    return locale_control.translation_map.get(slug_id, slug)
 
 
 class LocaleControl:
@@ -87,6 +83,7 @@ class LocaleControl:
     def __init__(self):
         self.reference = None
         self.translation = None
+        self.translation_map = None
         self.locales = []
         self.update_locales()
 
@@ -104,6 +101,7 @@ class LocaleControl:
         if locale == DEFAULT_LOCALE:
             self.reference = None
             self.translation = None
+            self.translation_map = None
             return
         module_path = "krux.translations.{}".format(locale[:2])
         translation_module = __import__(module_path)
@@ -116,6 +114,8 @@ class LocaleControl:
             from .translations import ref_array
 
             self.reference = ref_array
+        # O(1) lookup map: CRC32 slug id -> translated string
+        self.translation_map = dict(zip(self.reference, self.translation))
 
 
 locale_control = LocaleControl()
