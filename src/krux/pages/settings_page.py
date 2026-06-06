@@ -378,7 +378,9 @@ class SettingsPage(Page):
             if btn == BUTTON_TOUCH:
                 btn = self._touch_to_physical(self.ctx.input.touch.current_index())
             if btn == BUTTON_ENTER:
-                break
+                return self._category_change_exit_check(
+                    settings_namespace, setting, starting_category
+                )
 
             new_category = current_category
             for i, category in enumerate(categories):
@@ -391,10 +393,6 @@ class SettingsPage(Page):
                     break
 
             self._category_change_special_cases(setting, new_category)
-
-        return self._category_change_exit_check(
-            settings_namespace, setting, starting_category
-        )
 
     def _category_change_special_cases(self, setting, new_category):
         if setting.attr == "locale":
