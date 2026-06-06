@@ -517,7 +517,7 @@ class Page:
             # Check for SD hot-plug
             with SDHandler():
                 return True
-        except:
+        except Exception:
             return False
 
     def shutdown(self):
