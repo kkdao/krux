@@ -288,6 +288,25 @@ def test_store_get_malformed_namespace_returns_default():
     assert s.settings == {"settings": {"printer": "not_a_dict"}}  # no mutation
 
 
+def test_store_init_survives_non_dict_settings_namespace(mocker, m5stickv):
+    """Store.__init__ must not crash when the persisted 'settings' value is a
+    non-dict.
+
+    The loader only validates the top level is a dict, so a corrupted file like
+    {"settings": "not_a_dict"} passes load. The location read in __init__ walks
+    settings.persist.location and must degrade gracefully instead of raising
+    AttributeError. Reads through the malformed namespace return defaults.
+    """
+    stored_settings = '{"settings": "not_a_dict"}'
+    mocker.patch("builtins.open", mocker.mock_open(read_data=stored_settings))
+
+    from krux.settings import Store, FLASH_PATH
+
+    store = Store()  # must not raise
+    assert FLASH_PATH in store.file_location
+    assert store.get("settings.i18n", "locale", "en-US") == "en-US"
+
+
 def test_store_get_recovers_from_malformed_persisted_namespace(mocker, m5stickv):
     """End-to-end: a persisted settings file with a well-formed top level but a
     non-dict nested namespace loads, and reads through it degrade gracefully.
