@@ -303,16 +303,18 @@ class PSBTSigner:
 
         return prefix + BTC_SYMBOL + THIN_SPACE + "%s" % format_btc(amount)
 
-    def _get_resume_fee(self, inp_amount, out_amount, output_policy_count):
+    def _get_resume_fee(
+        self, inp_amount, out_amount, percent_base, output_policy_count
+    ):
         from .format import replace_decimal_separator
 
         fee = inp_amount - out_amount
 
         # fee percent with 1 decimal precision using math.ceil (minimum of 0.1)
-        if out_amount > 0:
+        if percent_base > 0:
             fee_percent = max(
                 0.1,
-                (((fee * 10000 // out_amount) + 9) // 10) / 10,
+                (((fee * 10000 // percent_base) + 9) // 10) / 10,
             )
         else:
             fee_percent = 100.0
@@ -433,8 +435,15 @@ class PSBTSigner:
                 + "\n\n"
             )
 
+        # The fee percent is relative to what is sent, spends and self
+        # transfers, so change can't dilute it. Change is the base only when
+        # nothing else is sent.
+        percent_base = (spend_amount + self_amount) or change_amount
         resume_fee_str, fee_percent = self._get_resume_fee(
-            inp_amount, self_amount + change_amount + spend_amount, output_policy_count
+            inp_amount,
+            self_amount + change_amount + spend_amount,
+            percent_base,
+            output_policy_count,
         )
 
         messages = []
