@@ -411,6 +411,49 @@ def test_change_passphrase_menu(mocker, amigo, tdata):
     assert ctx.wallet.key.fingerprint_hex_str() == FINGERPRINT_WITH_PASSPHRASE
 
 
+def test_change_passphrase_keeps_custom_derivation(mocker, amigo, tdata):
+    """Customize lets legacy multisig and miniscript wallets type a whole
+    derivation path; changing the passphrase must keep it"""
+    from krux.pages.home_pages.home import Home
+    from krux.wallet import Wallet
+    from krux.key import Key, TYPE_MULTISIG, TYPE_MINISCRIPT, P2SH, P2WSH
+    from krux.input import BUTTON_ENTER, BUTTON_PAGE_PREV
+    from embit.networks import NETWORKS
+
+    BTN_SEQUENCE = [
+        BUTTON_ENTER,  # Proceed on message
+        BUTTON_ENTER,  # Type passphrase
+        BUTTON_ENTER,  # Enter "a"
+        BUTTON_PAGE_PREV,  # Move to Go
+        BUTTON_ENTER,  # Confirm Go
+        BUTTON_ENTER,  # Confirm passphrase "a"
+    ]
+
+    cases = [
+        # policy type, account index, script type, typed derivation path
+        (TYPE_MULTISIG, None, P2SH, "m/45h/7"),
+        (TYPE_MINISCRIPT, 0, P2WSH, "m/48h/0h/0h/2h/9h"),
+    ]
+    for policy_type, account, script_type, derivation in cases:
+        key = Key(
+            tdata.SIGNING_MNEMONIC,
+            policy_type,
+            NETWORKS["main"],
+            "",
+            account,
+            script_type,
+            derivation,
+        )
+        ctx = create_ctx(mocker, BTN_SEQUENCE, wallet=Wallet(key))
+
+        home = Home(ctx)
+        home.passphrase()
+
+        assert ctx.input.wait_for_button.call_count == len(BTN_SEQUENCE)
+        assert ctx.wallet.key.passphrase == "a"
+        assert ctx.wallet.key.derivation == derivation
+
+
 def test_cancel_customize_wallet_menu(mocker, amigo, tdata):
     from krux.pages.home_pages.home import Home
     from krux.wallet import Wallet

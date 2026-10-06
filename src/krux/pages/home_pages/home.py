@@ -112,6 +112,7 @@ class Home(Page):
                 passphrase,
                 self.ctx.wallet.key.account_index,
                 self.ctx.wallet.key.script_type,
+                self.ctx.wallet.key.derivation,
             )
         )
         return MENU_CONTINUE
