@@ -13411,6 +13411,111 @@ def test_upgrade_fails_when_user_declines(mocker, m5stickv, mock_fail_input_cls,
     display_mocker.flash_text.assert_not_called()
 
 
+def _mock_upgrade(mocker, tdata, buttons):
+    """Patch a valid upgrade from SD card that answers its prompts with buttons"""
+    from krux import firmware
+
+    mocker.patch("krux.firmware.flash", new=mocker.MagicMock())
+    mocker.patch(
+        "builtins.open",
+        new=get_mock_open(
+            {
+                SD_FIRMWARE_PATH: tdata.TEST_FIRMWARE,
+                SD_FIRMWARE_SIG_PATH: tdata.TEST_FIRMWARE_SIG,
+            }
+        ),
+    )
+    mocker.patch.object(firmware, "os", new=mocker.MagicMock())
+    remove = firmware.os.remove
+    mocker.patch("krux.firmware.display", new=mocker.MagicMock())
+    mocker.patch(
+        "krux.firmware.Input",
+        new=mocker.MagicMock(
+            return_value=mocker.MagicMock(
+                wait_for_button=mocker.MagicMock(side_effect=buttons)
+            )
+        ),
+    )
+    mocker.patch("krux.firmware.SIGNER_PUBKEY", tdata.TEST_SIGNER_PUBKEY)
+    mocker.patch(
+        "krux.firmware.flash.read",
+        new=mocker.MagicMock(
+            return_value=bytes(tdata.SECTOR_WITH_ACTIVE_FIRMWARE_AT_INDEX_1_SLOT_1)
+        ),
+    )
+    mocker.patch.object(firmware, "is_version_greater", return_value="00.00.0")
+    mocker.patch.object(firmware, "is_this_device", return_value=True)
+    write_data = mocker.patch.object(firmware, "write_data")
+    return firmware, write_data, remove
+
+
+def test_upgrade_needs_enter_or_touch_to_install(mocker, m5stickv, tdata):
+    """Only ENTER or TOUCH installs: a held button or a swipe must cancel"""
+    from krux.input import (
+        BUTTON_PAGE,
+        FAST_FORWARD,
+        FAST_BACKWARD,
+        SWIPE_LEFT,
+        SWIPE_RIGHT,
+        SWIPE_UP,
+        SWIPE_DOWN,
+    )
+
+    for btn in (
+        FAST_FORWARD,
+        FAST_BACKWARD,
+        SWIPE_LEFT,
+        SWIPE_RIGHT,
+        SWIPE_UP,
+        SWIPE_DOWN,
+    ):
+        # PAGE answers the remove files prompt, if the bug reaches it
+        firmware, write_data, remove = _mock_upgrade(mocker, tdata, [btn, BUTTON_PAGE])
+
+        assert not firmware.upgrade()
+        write_data.assert_not_called()
+        remove.assert_not_called()
+
+
+def test_upgrade_needs_enter_or_touch_to_remove_files(mocker, m5stickv, tdata):
+    """Only ENTER or TOUCH removes the firmware files after an upgrade"""
+    from krux.input import (
+        BUTTON_ENTER,
+        BUTTON_TOUCH,
+        BUTTON_PAGE,
+        BUTTON_PAGE_PREV,
+        FAST_FORWARD,
+        FAST_BACKWARD,
+        SWIPE_LEFT,
+        SWIPE_RIGHT,
+        SWIPE_UP,
+        SWIPE_DOWN,
+    )
+
+    for btn in (
+        BUTTON_PAGE,
+        BUTTON_PAGE_PREV,
+        FAST_FORWARD,
+        FAST_BACKWARD,
+        SWIPE_LEFT,
+        SWIPE_RIGHT,
+        SWIPE_UP,
+        SWIPE_DOWN,
+    ):
+        firmware, write_data, remove = _mock_upgrade(mocker, tdata, [BUTTON_ENTER, btn])
+
+        assert firmware.upgrade()
+        write_data.assert_called()
+        remove.assert_not_called()
+
+    for btn in (BUTTON_ENTER, BUTTON_TOUCH):
+        firmware, write_data, remove = _mock_upgrade(mocker, tdata, [btn, btn])
+
+        assert firmware.upgrade()
+        write_data.assert_called()
+        assert remove.call_count == 2
+
+
 def test_upgrade_fails_when_firmware_too_big(
     mocker, m5stickv, mock_success_input_cls, tdata
 ):
