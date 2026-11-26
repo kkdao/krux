@@ -5,11 +5,13 @@ on:
     branches:
       - main
       - develop
+      - 'ci/**'
   pull_request:
 
 jobs:
   lint-black:
     strategy:
+      fail-fast: false
       matrix:
         # minimum tested python version
         # maximum python version
@@ -35,6 +37,7 @@ jobs:
           
   lint-pylint:
     strategy:
+      fail-fast: false
       matrix:
         # minimum tested python version
         # maximum python version
@@ -58,6 +61,7 @@ jobs:
 
   check-translations:
     strategy:
+      fail-fast: false
       matrix:
         # minimum tested python version
         # maximum python version
@@ -81,6 +85,7 @@ jobs:
 
   run-tests:
     strategy:
+      fail-fast: false
       matrix:
         # minimum tested python version
         # maximum python version
